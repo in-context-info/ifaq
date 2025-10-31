@@ -8,19 +8,17 @@
   },
   "upload_source_maps": true,
   "pages_build_output_dir": "build",
-  "assets": {
-    "directory": "./build",
-    "not_found_handling": "single-page-application"
-  },
 
   "ai": {
-    "binding": "AI"
+    "binding": "AI",
+    "remote": true
   	},
 
   "vectorize": [
     {
       "binding": "VECTOR_INDEX",
-      "index_name": "neocortex"
+      "index_name": "neocortex",
+      "remote": true
     }
   ],
 
