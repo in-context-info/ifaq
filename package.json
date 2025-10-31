@@ -44,7 +44,8 @@
             "recharts": "^2.15.2",
             "sonner": "^2.0.3",
             "tailwind-merge": "*",
-            "vaul": "^1.1.2"
+            "vaul": "^1.1.2",
+            "wrangler": "^4.45.3"
       },
       "devDependencies": {
             "@types/node": "^20.10.0",
@@ -53,6 +54,8 @@
       },
       "scripts": {
             "dev": "vite",
-            "build": "vite build"
+            "build": "vite build",
+            "preview:worker": "npm run build && wrangler pages dev",
+            "deploy:worker": "npm run build && wrangler pages deploy"
       }
 }
