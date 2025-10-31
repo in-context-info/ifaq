@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ifaq",
+  "compatibility_date": "2025-04-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "upload_source_maps": true,
+  "pages_build_output_dir": "build",
+  "assets": {
+    "directory": "./build",
+    "not_found_handling": "single-page-application"
+  },
+
+  "ai": {
+    "binding": "AI"
+  	},
+
+  "vectorize": [
+    {
+      "binding": "VECTOR_INDEX",
+      "index_name": "neocortex"
+    }
+  ],
+
+  "d1_databases": [{
+      "binding": "DB",
+      "database_name": "hippocampus",
+      "database_id": "c8ed78d0-79ae-45ff-9e12-5cd102aca9cb"
+  }]
+
+}
