@@ -58,7 +58,7 @@
 	"scripts": {
 		"dev": "vite",
 		"build": "vite build",
-		"deploy": "npx wrangler deploy",
+		"deploy": "npm run build && npx wrangler pages deploy",
 		"start": "npx wrangler dev",
 		"preview:worker": "npm run build && npx wrangler pages dev",
 		"deploy:worker": "npm run build && npx wrangler pages deploy",

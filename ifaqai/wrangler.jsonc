@@ -7,10 +7,6 @@
 	"name": "ifaqai",
 	"compatibility_date": "2025-10-31",
 	"pages_build_output_dir": "build",
-	"site": {
-		// The path to the directory containing static assets (for Workers)
-		"bucket": "./build"
-	},
 	"observability": {
 		"enabled": true
 	},
