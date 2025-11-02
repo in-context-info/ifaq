@@ -2,22 +2,16 @@ name = "ifaqai"
 compatibility_date = "2025-10-31"
 pages_build_output_dir = "build"
 
-# Assets directory - where built static files are served from
-# Vite builds to "build/" directory, which includes files from "public/" folder
 [site]
 bucket = "./build"
 
-# AI Binding
 [ai]
 binding = "AI"
-remote = true
 
-# Vectorize Binding
 [[vectorize]]
 binding = "VECTOR_INDEX"
 index_name = "neocortex"
 
-# D1 Database Binding
 [[d1_databases]]
 binding = "DB"
 database_name = "hippocampus"
