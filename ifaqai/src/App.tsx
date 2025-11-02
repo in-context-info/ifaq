@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { LoginPage } from './components/LoginPage';
 import { ProfileSetup } from './components/ProfileSetup';
 import { Dashboard } from './components/Dashboard';
 import { ChatbotInterface } from './components/ChatbotInterface';
@@ -104,14 +103,6 @@ function App() {
     }
   }, []);
 
-  const handleLogin = (username: string, needsSetup: boolean) => {
-    const user = getUserByUsername(username);
-    if (user) {
-      setCurrentUser(user);
-      setNeedsProfileSetup(needsSetup);
-    }
-  };
-
   const handleProfileComplete = (profile: { username: string; name: string; bio: string }) => {
     if (currentUser?.email) {
       try {
@@ -153,9 +144,24 @@ function App() {
     );
   }
 
-  // Show login if not authenticated
+  // Show loading/auth message if not authenticated
+  // With ZeroTrust, users should be automatically authenticated
   if (!currentUser) {
-    return <LoginPage onLogin={handleLogin} />;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Authenticating...</h2>
+            <p className="text-sm text-gray-600 mt-2">
+              Please wait while we verify your authentication via Cloudflare ZeroTrust.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Show profile setup if needed

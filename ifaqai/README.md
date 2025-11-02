@@ -21,7 +21,6 @@ ifaqai/
 │   │   ├── ChatbotInterface.tsx # Main chatbot UI component
 │   │   ├── Dashboard.tsx        # User dashboard
 │   │   ├── FAQManager.tsx       # FAQ management component
-│   │   ├── LoginPage.tsx        # Authentication page
 │   │   ├── ProfileSetup.tsx     # User profile setup
 │   │   ├── figma/               # Figma-related components
 │   │   └── ui/                  # Reusable UI components (Radix UI)
@@ -57,7 +56,6 @@ ifaqai/
 ### Application Components
 
 - **App.tsx**: Main application router that handles authentication state and routing
-- **LoginPage.tsx**: User authentication (login/signup)
 - **ProfileSetup.tsx**: Initial profile configuration for new users
 - **Dashboard.tsx**: Main dashboard for managing chatbot and FAQs
 - **ChatbotInterface.tsx**: Interactive chat interface for users to interact with chatbots
@@ -108,7 +106,7 @@ curl https://your-domain.workers.dev/api/random
 
 ### Routing
 
-- **`/`**: Home/login page
+- **`/`**: Home/dashboard (requires ZeroTrust authentication)
 - **`/<username>`**: Public chatbot interface for a specific user (e.g., `/john_doe`)
 - **`/api/*`**: API endpoints handled by the Cloudflare Worker
 
@@ -236,7 +234,7 @@ Currently, the application uses **localStorage** for data persistence:
 
 ## Features
 
-- ✅ User authentication (login/signup)
+- ✅ User authentication via Cloudflare ZeroTrust (email-based)
 - ✅ Profile management
 - ✅ FAQ creation and management
 - ✅ Personalized chatbot URLs
