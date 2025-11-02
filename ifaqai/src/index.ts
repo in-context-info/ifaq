@@ -5,6 +5,8 @@
  * Static assets are automatically served from the public directory as configured in wrangler.jsonc.
  */
 
+import { handleApiRoute } from './api/server/routes';
+
 export default {
 	async fetch(request, env, ctx): Promise<Response> {
 		const url = new URL(request.url);
@@ -12,18 +14,7 @@ export default {
 
 		// API routes
 		if (pathname.startsWith('/api/')) {
-			switch (pathname) {
-				case '/api/message':
-					return new Response('Hello from ifaqai!', {
-						headers: { 'Content-Type': 'text/plain' },
-					});
-				case '/api/random':
-					return new Response(crypto.randomUUID(), {
-						headers: { 'Content-Type': 'text/plain' },
-					});
-				default:
-					return new Response('Not Found', { status: 404 });
-			}
+			return handleApiRoute(pathname, request, env, ctx);
 		}
 
 		// For all other routes, let Wrangler handle static assets

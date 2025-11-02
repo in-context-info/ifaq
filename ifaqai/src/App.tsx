@@ -3,14 +3,10 @@ import { LoginPage } from './components/LoginPage';
 import { ProfileSetup } from './components/ProfileSetup';
 import { Dashboard } from './components/Dashboard';
 import { ChatbotInterface } from './components/ChatbotInterface';
+import { getLoggedInUser, logout as logoutUser } from './api/client';
+import { getCurrentUser, updateUserProfile, getUserByUsername } from './api/client';
+import type { User } from './api/types';
 
-interface User {
-  username: string;
-  name: string;
-  email: string;
-  bio?: string;
-  faqs: { question: string; answer: string; id: string }[];
-}
 
 function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -20,10 +16,9 @@ function App() {
 
   useEffect(() => {
     // Check if user is logged in
-    const loggedInUsername = localStorage.getItem('loggedInUser');
+    const loggedInUsername = getLoggedInUser();
     if (loggedInUsername) {
-      const users = JSON.parse(localStorage.getItem('users') || '[]');
-      const user = users.find((u: User) => u.username === loggedInUsername);
+      const user = getUserByUsername(loggedInUsername);
       if (user) {
         setCurrentUser(user);
       }
@@ -43,32 +38,27 @@ function App() {
   }, []);
 
   const handleLogin = (username: string, needsSetup: boolean) => {
-    localStorage.setItem('loggedInUser', username);
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const user = users.find((u: User) => u.username === username);
-    setCurrentUser(user);
-    setNeedsProfileSetup(needsSetup);
+    const user = getUserByUsername(username);
+    if (user) {
+      setCurrentUser(user);
+      setNeedsProfileSetup(needsSetup);
+    }
   };
 
   const handleProfileComplete = (profile: { username: string; name: string; bio: string }) => {
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const userIndex = users.findIndex((u: User) => u.email === currentUser?.email);
-    
-    if (userIndex !== -1) {
-      users[userIndex] = {
-        ...users[userIndex],
-        username: profile.username,
-        name: profile.name,
-        bio: profile.bio,
-      };
-      localStorage.setItem('users', JSON.stringify(users));
-      setCurrentUser(users[userIndex]);
-      setNeedsProfileSetup(false);
+    if (currentUser?.email) {
+      try {
+        const updatedUser = updateUserProfile(currentUser.email, profile);
+        setCurrentUser(updatedUser);
+        setNeedsProfileSetup(false);
+      } catch (error) {
+        console.error('Failed to update profile:', error);
+      }
     }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('loggedInUser');
+    logoutUser();
     setCurrentUser(null);
     setCurrentView('home');
     window.history.pushState({}, '', '/');

@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Bot } from 'lucide-react';
 import { toast } from 'sonner';
+import { login, signup, setLoggedInUser } from '../api/client';
 
 interface LoginPageProps {
   onLogin: (username: string, needsSetup: boolean) => void;
@@ -17,44 +18,30 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const user = users.find((u: any) => u.email === email && u.password === password);
-    
-    if (user) {
+    try {
+      const { user, needsSetup } = await login({ email, password });
+      setLoggedInUser(user.username);
       toast.success('Login successful!');
-      onLogin(user.username, false);
-    } else {
-      toast.error('Invalid email or password');
+      onLogin(user.username, needsSetup);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Invalid email or password');
     }
   };
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const existingUser = users.find((u: any) => u.email === signupEmail);
-    
-    if (existingUser) {
-      toast.error('Email already registered');
-      return;
+    try {
+      const { user, needsSetup } = await signup({ email: signupEmail, password: signupPassword });
+      setLoggedInUser(user.username);
+      toast.success('Account created! Please complete your profile.');
+      onLogin(user.username, needsSetup);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to create account');
     }
-
-    const newUser = {
-      email: signupEmail,
-      password: signupPassword,
-      username: `user_${Date.now()}`, // Temporary username
-      name: '',
-      bio: '',
-      faqs: [],
-    };
-
-    users.push(newUser);
-    localStorage.setItem('users', JSON.stringify(users));
-    toast.success('Account created! Please complete your profile.');
-    onLogin(newUser.username, true);
   };
 
   return (

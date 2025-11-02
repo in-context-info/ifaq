@@ -6,6 +6,7 @@ import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { User } from 'lucide-react';
 import { toast } from 'sonner';
+import { isUsernameAvailable } from '../api/client';
 
 interface ProfileSetupProps {
   onComplete: (profile: { username: string; name: string; bio: string }) => void;
@@ -26,11 +27,8 @@ export function ProfileSetup({ onComplete, initialEmail }: ProfileSetupProps) {
       return;
     }
 
-    // Check if username is taken
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const usernameTaken = users.some((u: any) => u.username === username && u.email !== initialEmail);
-    
-    if (usernameTaken) {
+    // Check if username is available
+    if (!isUsernameAvailable(username, initialEmail)) {
       toast.error('Username already taken');
       return;
     }
