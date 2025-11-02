@@ -17,6 +17,7 @@ function App() {
   const [needsProfileSetup, setNeedsProfileSetup] = useState(false);
   const [currentView, setCurrentView] = useState<'home' | 'chatbot'>('home');
   const [activeChatbotUsername, setActiveChatbotUsername] = useState<string>('');
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   useEffect(() => {
     // Check for Cloudflare Zero Trust Access authentication first
@@ -33,17 +34,13 @@ function App() {
           if (user) {
             // Update logged in user
             localStorage.setItem('loggedInUser', user.username);
+            // Check if profile setup is needed
+            const needsSetup = !user.name || user.name === user.email.split('@')[0] || !user.bio;
+            setNeedsProfileSetup(needsSetup);
             setCurrentUser(user);
           } else {
-            // User doesn't exist yet, LoginPage will handle creation
-            // Just check for existing login
-            const loggedInUsername = localStorage.getItem('loggedInUser');
-            if (loggedInUsername) {
-              const foundUser = users.find((u: User) => u.username === loggedInUsername);
-              if (foundUser) {
-                setCurrentUser(foundUser);
-              }
-            }
+            // User doesn't exist yet, let LoginPage handle creation
+            // Don't set currentUser here, let LoginPage create user and call onLogin
           }
         } else {
           // Not authenticated via Zero Trust, check local storage
@@ -67,6 +64,8 @@ function App() {
             setCurrentUser(user);
           }
         }
+      } finally {
+        setIsCheckingAuth(false);
       }
     };
 
@@ -139,8 +138,9 @@ function App() {
     );
   }
 
-  // Show login if not authenticated
-  if (!currentUser) {
+  // Show login page if not authenticated or while checking auth
+  // LoginPage will show its own loading state during auth check
+  if (!currentUser || isCheckingAuth) {
     return <LoginPage onLogin={handleLogin} />;
   }
 
