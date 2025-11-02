@@ -11,6 +11,11 @@ export interface User {
   faqs: FAQ[];
 }
 
+export interface ZeroTrustAuthPayload {
+  name: string;
+  email: string;
+}
+
 export interface FAQ {
   question: string;
   answer: string;

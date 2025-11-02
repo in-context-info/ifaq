@@ -3,8 +3,8 @@ import { LoginPage } from './components/LoginPage';
 import { ProfileSetup } from './components/ProfileSetup';
 import { Dashboard } from './components/Dashboard';
 import { ChatbotInterface } from './components/ChatbotInterface';
-import { getLoggedInUser, logout as logoutUser } from './api/client';
-import { getCurrentUser, updateUserProfile, getUserByUsername } from './api/client';
+import { fetchAuthFromServer, setLoggedInUser, getAuthPayload, logout as logoutUser } from './api/client';
+import { getCurrentUser, updateUserProfile, getUserByUsername, getUserByEmail } from './api/client';
 import type { User } from './api/types';
 
 
@@ -15,14 +15,46 @@ function App() {
   const [activeChatbotUsername, setActiveChatbotUsername] = useState<string>('');
 
   useEffect(() => {
-    // Check if user is logged in
-    const loggedInUsername = getLoggedInUser();
-    if (loggedInUsername) {
-      const user = getUserByUsername(loggedInUsername);
-      if (user) {
-        setCurrentUser(user);
+    // Fetch ZeroTrust authentication on mount
+    const initializeAuth = async () => {
+      // First, try to get auth from server (ZeroTrust)
+      const authPayload = await fetchAuthFromServer();
+      
+      if (authPayload) {
+        // User is authenticated via ZeroTrust
+        setLoggedInUser(authPayload);
+        const user = getUserByEmail(authPayload.email);
+        if (user) {
+          setCurrentUser(user);
+          // Check if user needs profile setup (no username set or temporary username)
+          const needsSetup = !user.username || user.username.startsWith('user_');
+          setNeedsProfileSetup(needsSetup);
+        } else {
+          // User doesn't exist yet, will be created by setLoggedInUser
+          // Fetch again after a moment
+          setTimeout(() => {
+            const newUser = getUserByEmail(authPayload.email);
+            if (newUser) {
+              setCurrentUser(newUser);
+              setNeedsProfileSetup(true); // New user needs setup
+            }
+          }, 100);
+        }
+      } else {
+        // Fallback: check localStorage for existing session
+        const storedPayload = getAuthPayload();
+        if (storedPayload) {
+          const user = getUserByEmail(storedPayload.email);
+          if (user) {
+            setCurrentUser(user);
+            const needsSetup = !user.username || user.username.startsWith('user_');
+            setNeedsProfileSetup(needsSetup);
+          }
+        }
       }
-    }
+    };
+
+    initializeAuth();
 
     // Check for route-based chatbot access (/<username>)
     // Only treat as username route if it's alphanumeric/underscore and not a file

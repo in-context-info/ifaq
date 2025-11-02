@@ -2,6 +2,8 @@
  * Server-side API routes for Cloudflare Worker
  */
 
+import { handleAuthEndpoint } from './authHandler';
+
 export interface RouteHandler {
   (request: Request, env: any, ctx: ExecutionContext): Promise<Response>;
 }
@@ -18,6 +20,8 @@ export const apiRoutes: Record<string, RouteHandler> = {
       headers: { 'Content-Type': 'text/plain' },
     });
   },
+
+  '/api/auth/me': handleAuthEndpoint,
 };
 
 export function handleApiRoute(

@@ -1,67 +1,137 @@
 /**
  * Authentication service for client-side operations
+ * Handles Cloudflare ZeroTrust email authentication
  */
 
-import { LoginCredentials, SignupData, User } from '../types';
+import { User, ZeroTrustAuthPayload } from '../types';
 
 const USERS_STORAGE_KEY = 'users';
 const LOGGED_IN_USER_KEY = 'loggedInUser';
+const AUTH_PAYLOAD_KEY = 'authPayload';
 
-/**
- * Login with email and password
- */
-export async function login(credentials: LoginCredentials): Promise<{ user: User; needsSetup: boolean }> {
-  const users = getUsers();
-  const user = users.find((u: User) => u.email === credentials.email && u.password === credentials.password);
+// /**
+//  * Login with email and password
+//  */
+// export async function login(credentials: LoginCredentials): Promise<{ user: User; needsSetup: boolean }> {
+//   const users = getUsers();
+//   const user = users.find((u: User) => u.email === credentials.email && u.password === credentials.password);
   
-  if (!user) {
-    throw new Error('Invalid email or password');
-  }
+//   if (!user) {
+//     throw new Error('Invalid email or password');
+//   }
 
-  // Check if user needs profile setup
-  const needsSetup = !user.name || !user.username || user.username.startsWith('user_');
+//   // Check if user needs profile setup
+//   const needsSetup = !user.name || !user.username || user.username.startsWith('user_');
   
-  return { user, needsSetup };
-}
+//   return { user, needsSetup };
+// }
 
 /**
  * Sign up a new user
+//  */
+// export async function signup(data: SignupData): Promise<{ user: User; needsSetup: boolean }> {
+//   const users = getUsers();
+//   const existingUser = users.find((u: User) => u.email === data.email);
+  
+//   if (existingUser) {
+//     throw new Error('Email already registered');
+//   }
+
+//   const newUser: User = {
+//     email: data.email,
+//     password: data.password,
+//     username: `user_${Date.now()}`, // Temporary username
+//     name: '',
+//     bio: '',
+//     faqs: [],
+//   };
+
+//   users.push(newUser);
+//   saveUsers(users);
+  
+//   return { user: newUser, needsSetup: true };
+// }
+
+
+
+/**
+ * Set the logged-in user from ZeroTrust authentication payload
+ * @param payload - Authentication payload from Cloudflare ZeroTrust containing name and email
  */
-export async function signup(data: SignupData): Promise<{ user: User; needsSetup: boolean }> {
+export function setLoggedInUser(payload: ZeroTrustAuthPayload): void {
+  // Store the authentication payload
+  localStorage.setItem(AUTH_PAYLOAD_KEY, JSON.stringify(payload));
+  
+  // Get or create user from payload
   const users = getUsers();
-  const existingUser = users.find((u: User) => u.email === data.email);
+  let user = users.find((u: User) => u.email === payload.email);
   
-  if (existingUser) {
-    throw new Error('Email already registered');
+  if (!user) {
+    // Create new user from ZeroTrust payload
+    user = {
+      email: payload.email,
+      name: payload.name,
+      username: `user_${Date.now()}`,
+      bio: '',
+      faqs: [],
+    };
+    users.push(user);
+    saveUsers(users);
+  } else {
+    // Update name if it changed
+    if (user.name !== payload.name) {
+      user.name = payload.name;
+      const userIndex = users.findIndex((u: User) => u.email === payload.email);
+      if (userIndex !== -1) {
+        users[userIndex] = user;
+        saveUsers(users);
+      }
+    }
   }
-
-  const newUser: User = {
-    email: data.email,
-    password: data.password,
-    username: `user_${Date.now()}`, // Temporary username
-    name: '',
-    bio: '',
-    faqs: [],
-  };
-
-  users.push(newUser);
-  saveUsers(users);
   
-  return { user: newUser, needsSetup: true };
+  // Store username for backward compatibility
+  localStorage.setItem(LOGGED_IN_USER_KEY, user.username);
 }
 
 /**
- * Set the logged-in user
+ * Fetch authentication payload from server (ZeroTrust)
+ * The server extracts user info from Cloudflare ZeroTrust headers
  */
-export function setLoggedInUser(username: string): void {
-  localStorage.setItem(LOGGED_IN_USER_KEY, username);
+export async function fetchAuthFromServer(): Promise<ZeroTrustAuthPayload | null> {
+  try {
+    const response = await fetch('/api/auth/me');
+    if (!response.ok) {
+      return null;
+    }
+    const payload = await response.json() as ZeroTrustAuthPayload;
+    return payload;
+  } catch (error) {
+    console.error('Error fetching auth from server:', error);
+    return null;
+  }
 }
 
 /**
- * Get the currently logged-in user
+ * Get the authentication payload from localStorage
+ */
+export function getAuthPayload(): ZeroTrustAuthPayload | null {
+  const payloadStr = localStorage.getItem(AUTH_PAYLOAD_KEY);
+  if (!payloadStr) {
+    return null;
+  }
+  try {
+    return JSON.parse(payloadStr) as ZeroTrustAuthPayload;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get the currently logged-in user email (from ZeroTrust)
  */
 export function getLoggedInUser(): string | null {
-  return localStorage.getItem(LOGGED_IN_USER_KEY);
+  const payload = getAuthPayload();
+  return payload?.email || null;
 }
 
 /**
@@ -69,6 +139,7 @@ export function getLoggedInUser(): string | null {
  */
 export function logout(): void {
   localStorage.removeItem(LOGGED_IN_USER_KEY);
+  localStorage.removeItem(AUTH_PAYLOAD_KEY);
 }
 
 /**
