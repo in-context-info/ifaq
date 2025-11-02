@@ -7,10 +7,7 @@
 	"name": "ifaqai",
 	"compatibility_date": "2025-10-31",
 	"pages_build_output_dir": "build",
-	"assets": {
-		// The path to the directory containing the `index.html` file to be served at `/`
-		"directory": "./build"
-	},
+	
 	"observability": {
 		"enabled": true
 	},
