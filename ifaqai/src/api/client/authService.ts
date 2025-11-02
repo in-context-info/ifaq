@@ -68,9 +68,16 @@ export function setLoggedInUser(payload: ZeroTrustAuthPayload): void {
   
   if (!user) {
     // Create new user from ZeroTrust payload
+    // Split name into first_name and last_name
+    const nameParts = payload.name ? payload.name.trim().split(/\s+/) : ['', ''];
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+    
     user = {
       email: payload.email,
       name: payload.name,
+      firstName,
+      lastName,
       username: `user_${Date.now()}`,
       bio: '',
       faqs: [],
@@ -80,7 +87,10 @@ export function setLoggedInUser(payload: ZeroTrustAuthPayload): void {
   } else {
     // Update name if it changed
     if (user.name !== payload.name) {
+      const nameParts = payload.name ? payload.name.trim().split(/\s+/) : ['', ''];
       user.name = payload.name;
+      user.firstName = nameParts[0] || '';
+      user.lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
       const userIndex = users.findIndex((u: User) => u.email === payload.email);
       if (userIndex !== -1) {
         users[userIndex] = user;

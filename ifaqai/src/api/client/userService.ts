@@ -1,5 +1,6 @@
 /**
  * User service for client-side operations
+ * Supports both localStorage (fallback) and D1 database (primary)
  */
 
 import { User, UpdateUserData, ProfileData, FAQ } from '../types';
@@ -31,7 +32,30 @@ export function getUserByEmail(email: string): User | null {
 }
 
 /**
- * Get currently logged-in user
+ * Fetch current user from D1 database by email
+ * @param email - User email address
+ * @returns User object or null if not found
+ */
+export async function fetchUserFromDatabase(email: string): Promise<User | null> {
+  try {
+    const response = await fetch(`/api/users/me?email=${encodeURIComponent(email)}`);
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      throw new Error(`Failed to fetch user: ${response.statusText}`);
+    }
+    const user = await response.json() as User;
+    return user;
+  } catch (error) {
+    console.error('Error fetching user from database:', error);
+    // Fallback to localStorage
+    return getUserByEmail(email);
+  }
+}
+
+/**
+ * Get currently logged-in user (from localStorage - legacy)
  */
 export function getCurrentUser(): User | null {
   const username = localStorage.getItem(LOGGED_IN_USER_KEY);

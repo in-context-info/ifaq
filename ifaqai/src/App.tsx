@@ -4,7 +4,7 @@ import { ProfileSetup } from './components/ProfileSetup';
 import { Dashboard } from './components/Dashboard';
 import { ChatbotInterface } from './components/ChatbotInterface';
 import { fetchAuthFromServer, setLoggedInUser, getAuthPayload, logout as logoutUser } from './api/client';
-import { getCurrentUser, updateUserProfile, getUserByUsername, getUserByEmail } from './api/client';
+import { getCurrentUser, updateUserProfile, getUserByUsername, getUserByEmail, fetchUserFromDatabase } from './api/client';
 import type { User } from './api/types';
 
 
@@ -23,31 +23,66 @@ function App() {
       if (authPayload) {
         // User is authenticated via ZeroTrust
         setLoggedInUser(authPayload);
-        const user = getUserByEmail(authPayload.email);
-        if (user) {
-          setCurrentUser(user);
-          // Check if user needs profile setup (no username set or temporary username)
-          const needsSetup = !user.username || user.username.startsWith('user_');
-          setNeedsProfileSetup(needsSetup);
-        } else {
-          // User doesn't exist yet, will be created by setLoggedInUser
-          // Fetch again after a moment
-          setTimeout(() => {
-            const newUser = getUserByEmail(authPayload.email);
-            if (newUser) {
-              setCurrentUser(newUser);
-              setNeedsProfileSetup(true); // New user needs setup
+        
+        // Try to fetch user from D1 database first
+        try {
+          const user = await fetchUserFromDatabase(authPayload.email);
+          if (user) {
+            setCurrentUser(user);
+            // Check if user needs profile setup (no username set or temporary username)
+            const needsSetup = !user.username || user.username.startsWith('user_');
+            setNeedsProfileSetup(needsSetup);
+          } else {
+            // User doesn't exist in database yet, check localStorage
+            const localUser = getUserByEmail(authPayload.email);
+            if (localUser) {
+              setCurrentUser(localUser);
+              const needsSetup = !localUser.username || localUser.username.startsWith('user_');
+              setNeedsProfileSetup(needsSetup);
+            } else {
+              // New user - will be created by setLoggedInUser in localStorage
+              // Check again after a moment
+              setTimeout(() => {
+                const newUser = getUserByEmail(authPayload.email);
+                if (newUser) {
+                  setCurrentUser(newUser);
+                  setNeedsProfileSetup(true); // New user needs setup
+                }
+              }, 100);
             }
-          }, 100);
+          }
+        } catch (error) {
+          console.error('Error fetching user from database, falling back to localStorage:', error);
+          // Fallback to localStorage
+          const localUser = getUserByEmail(authPayload.email);
+          if (localUser) {
+            setCurrentUser(localUser);
+            const needsSetup = !localUser.username || localUser.username.startsWith('user_');
+            setNeedsProfileSetup(needsSetup);
+          }
         }
       } else {
         // Fallback: check localStorage for existing session
         const storedPayload = getAuthPayload();
         if (storedPayload) {
-          const user = getUserByEmail(storedPayload.email);
-          if (user) {
-            setCurrentUser(user);
-            const needsSetup = !user.username || user.username.startsWith('user_');
+          // Try database first
+          try {
+            const user = await fetchUserFromDatabase(storedPayload.email);
+            if (user) {
+              setCurrentUser(user);
+              const needsSetup = !user.username || user.username.startsWith('user_');
+              setNeedsProfileSetup(needsSetup);
+              return;
+            }
+          } catch (error) {
+            console.error('Error fetching user from database:', error);
+          }
+          
+          // Fallback to localStorage
+          const localUser = getUserByEmail(storedPayload.email);
+          if (localUser) {
+            setCurrentUser(localUser);
+            const needsSetup = !localUser.username || localUser.username.startsWith('user_');
             setNeedsProfileSetup(needsSetup);
           }
         }

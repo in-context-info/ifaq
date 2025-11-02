@@ -3,6 +3,7 @@
  */
 
 import { handleAuthEndpoint } from './authHandler';
+import { handleGetCurrentUser } from './userService';
 
 export interface RouteHandler {
   (request: Request, env: any, ctx: ExecutionContext): Promise<Response>;
@@ -22,6 +23,8 @@ export const apiRoutes: Record<string, RouteHandler> = {
   },
 
   '/api/auth/me': handleAuthEndpoint,
+
+  '/api/users/me': (request: Request, env: any) => handleGetCurrentUser(request, env),
 };
 
 export function handleApiRoute(
@@ -30,7 +33,11 @@ export function handleApiRoute(
   env: any,
   ctx: ExecutionContext
 ): Promise<Response> {
-  const handler = apiRoutes[pathname];
+  // Support query parameters for routes like /api/users/me?email=...
+  const url = new URL(request.url);
+  const basePath = url.pathname;
+  
+  const handler = apiRoutes[basePath];
   
   if (handler) {
     return handler(request, env, ctx);
