@@ -22,26 +22,26 @@
 
 	"ai": {
 		"binding": "AI"
-		  },
+	},
 	
 	"vectorize": [
-	{
-		"binding": "VECTOR_INDEX",
-		"index_name": "neocortex"
-	}
+		{
+			"binding": "VECTOR_INDEX",
+			"index_name": "neocortex"
+		}
 	],
 
 	"d1_databases": [{
 		"binding": "DB",
 		"database_name": "hippocampus",
 		"database_id": "c8ed78d0-79ae-45ff-9e12-5cd102aca9cb"
-	}],
+	}]
 
-	"custom_domains": [
-	{
-		"domain": "ifaq.ai"
-	},
 	/**
+	 * Note: Custom domains are configured through the Cloudflare Dashboard
+	 * after deploying your Worker. You cannot set custom domains in wrangler.jsonc.
+	 * Go to Workers & Pages > Your Worker > Settings > Triggers > Custom Domains
+	 * 
 	 * Smart Placement
 	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
 	 */
