@@ -19,15 +19,58 @@ function App() {
   const [activeChatbotUsername, setActiveChatbotUsername] = useState<string>('');
 
   useEffect(() => {
-    // Check if user is logged in
-    const loggedInUsername = localStorage.getItem('loggedInUser');
-    if (loggedInUsername) {
-      const users = JSON.parse(localStorage.getItem('users') || '[]');
-      const user = users.find((u: User) => u.username === loggedInUsername);
-      if (user) {
-        setCurrentUser(user);
+    // Check for Cloudflare Zero Trust Access authentication first
+    const checkZeroTrustAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/user');
+        const data = await response.json();
+        
+        if (data.authenticated && data.email) {
+          // User is authenticated via Cloudflare Zero Trust Access
+          const users = JSON.parse(localStorage.getItem('users') || '[]');
+          let user = users.find((u: User) => u.email === data.email);
+          
+          if (user) {
+            // Update logged in user
+            localStorage.setItem('loggedInUser', user.username);
+            setCurrentUser(user);
+          } else {
+            // User doesn't exist yet, LoginPage will handle creation
+            // Just check for existing login
+            const loggedInUsername = localStorage.getItem('loggedInUser');
+            if (loggedInUsername) {
+              const foundUser = users.find((u: User) => u.username === loggedInUsername);
+              if (foundUser) {
+                setCurrentUser(foundUser);
+              }
+            }
+          }
+        } else {
+          // Not authenticated via Zero Trust, check local storage
+          const loggedInUsername = localStorage.getItem('loggedInUser');
+          if (loggedInUsername) {
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const user = users.find((u: User) => u.username === loggedInUsername);
+            if (user) {
+              setCurrentUser(user);
+            }
+          }
+        }
+      } catch (error) {
+        // If API call fails, fall back to local storage check
+        console.error('Error checking Zero Trust authentication:', error);
+        const loggedInUsername = localStorage.getItem('loggedInUser');
+        if (loggedInUsername) {
+          const users = JSON.parse(localStorage.getItem('users') || '[]');
+          const user = users.find((u: User) => u.username === loggedInUsername);
+          if (user) {
+            setCurrentUser(user);
+          }
+        }
       }
-    }
+    };
+
+    checkZeroTrustAuth();
 
     // Check for route-based chatbot access (/<username>)
     // Only treat as username route if it's alphanumeric/underscore and not a file
