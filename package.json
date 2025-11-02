@@ -55,8 +55,8 @@
       "scripts": {
             "dev": "vite",
             "build": "vite build",
-            "preview:worker": "npm run build && wrangler pages dev",
-            "deploy:worker": "npm run build && wrangler pages deploy --project-name=ifaq",
-            "deploy:create": "npm run build && wrangler pages deploy --project-name=ifaq --create"
+            "preview:worker": "npm run build && npx wrangler pages dev",
+            "deploy:worker": "npm run build && npx wrangler pages deploy --project-name=ifaq",
+            "deploy:create": "npm run build && npx wrangler pages deploy --project-name=ifaq --create"
       }
 }
