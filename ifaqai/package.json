@@ -1,7 +1,17 @@
 {
 	"name": "ifaqai",
-	"version": "0.1.0",
+	"version": "0.0.0",
 	"private": true,
+	"scripts": {
+		"build:frontend": "vite build",
+		"build:worker": "wrangler build",
+		"build": "npm run build:frontend && npm run build:worker",
+		"deploy": "npm run build && wrangler deploy",
+		"dev": "wrangler dev",
+		"start": "wrangler dev",
+		"test": "vitest",
+		"cf-typegen": "wrangler types"
+	},
 	"dependencies": {
 		"@radix-ui/react-accordion": "^1.2.3",
 		"@radix-ui/react-alert-dialog": "^1.1.6",
@@ -30,7 +40,7 @@
 		"@radix-ui/react-toggle-group": "^1.1.2",
 		"@radix-ui/react-tooltip": "^1.1.8",
 		"class-variance-authority": "^0.7.1",
-		"clsx": "*",
+		"clsx": "^2.1.1",
 		"cmdk": "^1.1.1",
 		"embla-carousel-react": "^8.6.0",
 		"input-otp": "^1.4.2",
@@ -43,27 +53,18 @@
 		"react-resizable-panels": "^2.1.7",
 		"recharts": "^2.15.2",
 		"sonner": "^2.0.3",
-		"tailwind-merge": "*",
-		"vaul": "^1.1.2",
-		"wrangler": "^4.45.3"
+		"tailwind-merge": "^2.5.5",
+		"vaul": "^1.1.2"
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.8.19",
 		"@types/node": "^20.10.0",
+		"@types/react": "^18.3.12",
+		"@types/react-dom": "^18.3.1",
 		"@vitejs/plugin-react-swc": "^3.10.2",
 		"typescript": "^5.5.2",
-		"vite": "^6.4.1",
-		"vitest": "~3.2.0"
-	},
-	"scripts": {
-		"dev": "vite",
-		"build": "vite build",
-		"deploy": "npx wrangler deploy",
-		"start": "npx wrangler dev",
-		"preview:worker": "npm run build && npx wrangler pages dev",
-		"deploy:worker": "npm run build && npx wrangler pages deploy",
-		"deploy:create": "npm run build && npx wrangler pages deploy --create",
-		"test": "vitest",
-		"cf-typegen": "wrangler types"
+		"vite": "^6.3.5",
+		"vitest": "~3.2.0",
+		"wrangler": "^4.45.3"
 	}
 }
