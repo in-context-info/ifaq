@@ -61,8 +61,8 @@
 		"deploy": "npx wrangler deploy",
 		"start": "npx wrangler dev",
 		"preview:worker": "npm run build && npx wrangler pages dev",
-		"deploy:worker": "npm run build && npx wrangler pages deploy --project-name=ifaqai",
-		"deploy:create": "npm run build && npx wrangler pages deploy --project-name=ifaqai --create",
+		"deploy:worker": "npm run build && npx wrangler versions upload",
+		"deploy:create": "npm run build && npx wrangler versions upload",
 		"test": "vitest",
 		"cf-typegen": "wrangler types"
 	}

@@ -1,6 +1,8 @@
 name = "ifaqai"
 compatibility_date = "2025-10-31"
-pages_build_output_dir = "build"
+
+[site]
+bucket = "./build"
 
 [ai]
 binding = "AI"

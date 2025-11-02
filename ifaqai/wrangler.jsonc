@@ -6,8 +6,10 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "ifaqai",
 	"compatibility_date": "2025-10-31",
-	"pages_build_output_dir": "build",
-	
+	"site": {
+		// The path to the directory containing static assets
+		"bucket": "./build"
+	},
 	"observability": {
 		"enabled": true
 	},
