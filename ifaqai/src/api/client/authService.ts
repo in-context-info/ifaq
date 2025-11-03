@@ -145,8 +145,41 @@ export function getLoggedInUser(): string | null {
 }
 
 /**
+ * Clear all cookies for the current domain
+ * Note: HttpOnly cookies cannot be cleared from JavaScript
+ */
+function clearAllCookies(): void {
+  try {
+    // Get all cookies
+    const cookies = document.cookie.split(';');
+    
+    // Clear each cookie
+    for (let cookie of cookies) {
+      const eqPos = cookie.indexOf('=');
+      const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+      
+      // Clear cookie for current domain
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+      
+      // Also try to clear for parent domain if applicable
+      const domain = window.location.hostname;
+      const domainParts = domain.split('.');
+      if (domainParts.length > 1) {
+        const parentDomain = '.' + domainParts.slice(-2).join('.');
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${parentDomain}`;
+      }
+      
+      // Clear for root path
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+    }
+  } catch (error) {
+    console.warn('Error clearing cookies:', error);
+  }
+}
+
+/**
  * Logout the current user
- * Clears all login information, refreshes the browser, and redirects to ifaq.ai for ZeroTrust login
+ * Clears all login information, ends the session, refreshes the browser, and redirects to ifaq.ai for ZeroTrust login
  */
 export function logout(): void {
   // Clear all authentication-related localStorage items
@@ -158,6 +191,10 @@ export function logout(): void {
   
   // Clear any session storage related to auth
   sessionStorage.clear();
+  
+  // Clear all cookies to end the ZeroTrust session
+  // This includes Cloudflare ZeroTrust session cookies
+  clearAllCookies();
   
   // Force a hard redirect to ifaq.ai with cache-busting parameters
   // Using replace instead of href prevents back button access
