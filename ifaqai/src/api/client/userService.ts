@@ -55,6 +55,52 @@ export async function fetchUserFromDatabase(email: string): Promise<User | null>
 }
 
 /**
+ * Create or update user in D1 database
+ * @param user - User object to create/update
+ * @returns Created/updated user
+ * @throws Error if username is already taken or other error occurs
+ */
+export async function createUserInDatabase(user: User): Promise<User> {
+  try {
+    const response = await fetch('/api/users', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(user),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: response.statusText }));
+      if (response.status === 409) {
+        // Username conflict - rethrow with specific message
+        throw new Error(errorData.error || 'Username already taken');
+      }
+      throw new Error(errorData.error || `Failed to create user: ${response.statusText}`);
+    }
+    
+    const createdUser = await response.json() as User;
+    return createdUser;
+  } catch (error) {
+    console.error('Error creating user in database:', error);
+    // If it's a username conflict, rethrow it
+    if (error instanceof Error && error.message.includes('already taken')) {
+      throw error;
+    }
+    // Fallback: save to localStorage
+    const users = getAllUsers();
+    const userIndex = users.findIndex((u: User) => u.email === user.email);
+    if (userIndex !== -1) {
+      users[userIndex] = user;
+    } else {
+      users.push(user);
+    }
+    saveUsers(users);
+    return user;
+  }
+}
+
+/**
  * Get currently logged-in user (from localStorage - legacy)
  */
 export function getCurrentUser(): User | null {

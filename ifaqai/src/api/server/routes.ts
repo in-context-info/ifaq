@@ -3,7 +3,7 @@
  */
 
 import { handleAuthEndpoint } from './authHandler';
-import { handleGetCurrentUser } from './userService';
+import { handleGetCurrentUser, handleCreateUser } from './userService';
 
 export interface RouteHandler {
   (request: Request, env: any, ctx: ExecutionContext): Promise<Response>;
@@ -25,6 +25,15 @@ export const apiRoutes: Record<string, RouteHandler> = {
   '/api/auth/me': handleAuthEndpoint,
 
   '/api/users/me': (request: Request, env: any) => handleGetCurrentUser(request, env),
+  
+  '/api/users': (request: Request, env: any) => {
+    if (request.method === 'POST') {
+      return handleCreateUser(request, env);
+    }
+    return Promise.resolve(
+      new Response('Method not allowed', { status: 405 })
+    );
+  },
 };
 
 export function handleApiRoute(

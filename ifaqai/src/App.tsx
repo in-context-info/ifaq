@@ -3,8 +3,9 @@ import { ProfileSetup } from './components/ProfileSetup';
 import { Dashboard } from './components/Dashboard';
 import { ChatbotInterface } from './components/ChatbotInterface';
 import { fetchAuthFromServer, setLoggedInUser, getAuthPayload, logout as logoutUser } from './api/client';
-import { getCurrentUser, updateUserProfile, getUserByUsername, getUserByEmail, fetchUserFromDatabase } from './api/client';
+import { getCurrentUser, updateUserProfile, getUserByUsername, getUserByEmail, fetchUserFromDatabase, createUserInDatabase } from './api/client';
 import type { User } from './api/types';
+import { toast } from 'sonner';
 
 
 function App() {
@@ -25,29 +26,66 @@ function App() {
         
         // Try to fetch user from D1 database first
         try {
-          const user = await fetchUserFromDatabase(authPayload.email);
+          let user = await fetchUserFromDatabase(authPayload.email);
+          
           if (user) {
+            // User exists in database
             setCurrentUser(user);
             // Check if user needs profile setup (no username set or temporary username)
             const needsSetup = !user.username || user.username.startsWith('user_');
             setNeedsProfileSetup(needsSetup);
           } else {
-            // User doesn't exist in database yet, check localStorage
+            // User doesn't exist in database - create new user record
+            // First, get or create user in localStorage (setLoggedInUser does this)
             const localUser = getUserByEmail(authPayload.email);
+            
             if (localUser) {
-              setCurrentUser(localUser);
-              const needsSetup = !localUser.username || localUser.username.startsWith('user_');
-              setNeedsProfileSetup(needsSetup);
+              // Create new user in database using localStorage user data
+              try {
+                const newUser = await createUserInDatabase(localUser);
+                setCurrentUser(newUser);
+                // New users always need profile setup
+                setNeedsProfileSetup(true);
+              } catch (error) {
+                console.error('Error creating user in database, using localStorage user:', error);
+                setCurrentUser(localUser);
+                // New users always need profile setup
+                setNeedsProfileSetup(true);
+              }
             } else {
-              // New user - will be created by setLoggedInUser in localStorage
-              // Check again after a moment
-              setTimeout(() => {
-                const newUser = getUserByEmail(authPayload.email);
-                if (newUser) {
-                  setCurrentUser(newUser);
-                  setNeedsProfileSetup(true); // New user needs setup
-                }
-              }, 100);
+              // Create a new user from auth payload
+              const nameParts = authPayload.name ? authPayload.name.trim().split(/\s+/) : ['', ''];
+              const firstName = nameParts[0] || '';
+              const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+              
+              const newUser: User = {
+                email: authPayload.email,
+                name: authPayload.name || '',
+                firstName,
+                lastName,
+                username: `user_${Date.now()}`,
+                bio: '',
+                faqs: [],
+              };
+              
+              try {
+                // Create in database
+                const createdUser = await createUserInDatabase(newUser);
+                setCurrentUser(createdUser);
+                // New users always need profile setup
+                setNeedsProfileSetup(true);
+              } catch (error) {
+                console.error('Error creating user in database, falling back to localStorage:', error);
+                // Fallback: create in localStorage via setLoggedInUser
+                // Wait a moment for setLoggedInUser to complete
+                setTimeout(() => {
+                  const localUser = getUserByEmail(authPayload.email);
+                  if (localUser) {
+                    setCurrentUser(localUser);
+                    setNeedsProfileSetup(true);
+                  }
+                }, 100);
+              }
             }
           }
         } catch (error) {
@@ -58,6 +96,15 @@ function App() {
             setCurrentUser(localUser);
             const needsSetup = !localUser.username || localUser.username.startsWith('user_');
             setNeedsProfileSetup(needsSetup);
+          } else {
+            // Create new user in localStorage and set needs setup
+            setTimeout(() => {
+              const newUser = getUserByEmail(authPayload.email);
+              if (newUser) {
+                setCurrentUser(newUser);
+                setNeedsProfileSetup(true);
+              }
+            }, 100);
           }
         }
       } else {
@@ -66,12 +113,27 @@ function App() {
         if (storedPayload) {
           // Try database first
           try {
-            const user = await fetchUserFromDatabase(storedPayload.email);
+            let user = await fetchUserFromDatabase(storedPayload.email);
             if (user) {
               setCurrentUser(user);
               const needsSetup = !user.username || user.username.startsWith('user_');
               setNeedsProfileSetup(needsSetup);
               return;
+            } else {
+              // User doesn't exist in database - create new user record
+              const localUser = getUserByEmail(storedPayload.email);
+              if (localUser) {
+                // Create new user in database using localStorage user data
+                try {
+                  const newUser = await createUserInDatabase(localUser);
+                  setCurrentUser(newUser);
+                  setNeedsProfileSetup(true);
+                  return;
+                } catch (error) {
+                  console.error('Error creating user in database:', error);
+                  // Fall through to localStorage fallback
+                }
+              }
             }
           } catch (error) {
             console.error('Error fetching user from database:', error);
@@ -103,14 +165,31 @@ function App() {
     }
   }, []);
 
-  const handleProfileComplete = (profile: { username: string; name: string; bio: string }) => {
+  const handleProfileComplete = async (profile: { username: string; name: string; bio: string }) => {
     if (currentUser?.email) {
       try {
+        // Update in localStorage first
         const updatedUser = updateUserProfile(currentUser.email, profile);
-        setCurrentUser(updatedUser);
-        setNeedsProfileSetup(false);
+        
+        // Also update in database
+        try {
+          const dbUser = await createUserInDatabase(updatedUser);
+          setCurrentUser(dbUser);
+          setNeedsProfileSetup(false);
+        } catch (error) {
+          // Check if it's a username conflict
+          if (error instanceof Error && error.message.includes('already taken')) {
+            toast.error('Username already taken. Please choose a different username.');
+            // Keep user in profile setup mode
+            return;
+          }
+          console.error('Failed to update profile in database, using localStorage version:', error);
+          setCurrentUser(updatedUser);
+          setNeedsProfileSetup(false);
+        }
       } catch (error) {
         console.error('Failed to update profile:', error);
+        toast.error('Failed to update profile. Please try again.');
       }
     }
   };

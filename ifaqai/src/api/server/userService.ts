@@ -206,3 +206,88 @@ export async function handleGetCurrentUser(
   }
 }
 
+/**
+ * Handle POST /api/users endpoint
+ * Creates or updates a user in the database
+ */
+export async function handleCreateUser(
+  request: Request,
+  env: { DB?: D1Database }
+): Promise<Response> {
+  if (!env.DB) {
+    return new Response(
+      JSON.stringify({ error: 'Database binding not configured' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  try {
+    const user = await request.json() as User;
+    
+    if (!user.email) {
+      return new Response(
+        JSON.stringify({ error: 'Email is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check if user already exists by email
+    const existingUserByEmail = await getUserByEmail(env.DB, user.email);
+    
+    // Ensure username is set (use temporary if not provided)
+    if (!user.username || user.username.startsWith('user_')) {
+      // Generate a unique temporary username
+      let tempUsername = `user_${Date.now()}`;
+      // Check if temp username is taken (very unlikely, but check anyway)
+      let attempts = 0;
+      while (attempts < 10) {
+        const existingUser = await getUserByUsername(env.DB, tempUsername);
+        if (!existingUser) {
+          break;
+        }
+        tempUsername = `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        attempts++;
+      }
+      user.username = tempUsername;
+    } else {
+      // Check if the username is already taken in the database
+      const existingUserByUsername = await getUserByUsername(env.DB, user.username);
+      
+      if (existingUserByUsername) {
+        // Username is taken - check if it's by the same user (updating) or different user
+        const isSameUser = existingUserByUsername.email === user.email;
+        
+        if (!isSameUser) {
+          // Username is taken by a different user - reject
+          return new Response(
+            JSON.stringify({ error: 'Username already taken' }),
+            { status: 409, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        // If isSameUser is true, allow it (user updating their own username)
+      }
+      // If existingUserByUsername is null, username is available - proceed
+    }
+
+    // Create or update user in database
+    const createdUser = await upsertUser(env.DB, user);
+
+    // Remove password from response if it exists
+    const { password, ...userWithoutPassword } = createdUser;
+    
+    return new Response(
+      JSON.stringify(userWithoutPassword),
+      { 
+        status: 201,
+        headers: { 'Content-Type': 'application/json' } 
+      }
+    );
+  } catch (error) {
+    console.error('Error creating user:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+}
+
