@@ -6,14 +6,8 @@ import { Avatar, AvatarFallback } from './ui/avatar';
 import { Badge } from './ui/badge';
 import { FAQManager } from './FAQManager';
 import { Bot, LogOut, ExternalLink, User as UserIcon } from 'lucide-react';
-
-interface User {
-  username: string;
-  name: string;
-  email: string;
-  bio?: string;
-  faqs: { question: string; answer: string; id: string }[];
-}
+import { updateUserFAQs } from '../api/client';
+import type { User } from '../api/types';
 
 interface DashboardProps {
   user: User;
@@ -24,13 +18,11 @@ interface DashboardProps {
 
 export function Dashboard({ user, onLogout, onNavigateToChatbot, onUpdateUser }: DashboardProps) {
   const handleFAQsUpdate = (faqs: { question: string; answer: string; id: string }[]) => {
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const userIndex = users.findIndex((u: User) => u.username === user.username);
-    
-    if (userIndex !== -1) {
-      users[userIndex].faqs = faqs;
-      localStorage.setItem('users', JSON.stringify(users));
-      onUpdateUser({ ...user, faqs });
+    try {
+      const updatedUser = updateUserFAQs(user.username, faqs);
+      onUpdateUser(updatedUser);
+    } catch (error) {
+      console.error('Failed to update FAQs:', error);
     }
   };
 

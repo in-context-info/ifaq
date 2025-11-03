@@ -29,6 +29,18 @@
 	 * https://developers.cloudflare.com/workers/runtime-apis/bindings/
 	 */
 	/**
+	 * D1 Database Binding
+	 * Uncomment and configure your D1 database binding to use the Users table API
+	 * Example:
+	 * "d1_databases": [
+	 *   {
+	 *     "binding": "DB",
+	 *     "database_name": "your-database-name",
+	 *     "database_id": "your-database-id"
+	 *   }
+	 * ]
+	 */
+	/**
 	 * Environment Variables
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
 	 */

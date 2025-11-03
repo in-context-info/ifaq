@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { ScrollArea } from './ui/scroll-area';
 import { Bot, Send, ArrowLeft, User as UserIcon } from 'lucide-react';
+import { getUserByUsername } from '../api/client';
 
 interface Message {
   id: string;
@@ -29,8 +30,7 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
 
   useEffect(() => {
     // Load bot owner info
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const owner = users.find((u: any) => u.username === username);
+    const owner = getUserByUsername(username);
     
     if (owner) {
       setBotOwner(owner);
