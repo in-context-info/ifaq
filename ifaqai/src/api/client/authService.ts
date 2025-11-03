@@ -179,7 +179,8 @@ function clearAllCookies(): void {
 
 /**
  * Logout the current user
- * Clears all login information, ends the session, refreshes the browser, and redirects to ifaq.ai for ZeroTrust login
+ * Clears all login information and ends the session
+ * Note: Does not auto-redirect. The UI should handle showing the logout page.
  */
 export function logout(): void {
   // Clear all authentication-related localStorage items
@@ -195,16 +196,6 @@ export function logout(): void {
   // Clear all cookies to end the ZeroTrust session
   // This includes Cloudflare ZeroTrust session cookies
   clearAllCookies();
-  
-  // Force a hard redirect to ifaq.ai with cache-busting parameters
-  // Using replace instead of href prevents back button access
-  // The timestamp ensures a fresh load bypassing cache
-  const timestamp = Date.now();
-  const logoutUrl = `https://ifaq.ai?logout=${timestamp}&t=${timestamp}`;
-  
-  // Force a complete page unload and redirect
-  // This ensures all browser state is cleared before redirect
-  window.location.replace(logoutUrl);
 }
 
 /**

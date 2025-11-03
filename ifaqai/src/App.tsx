@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ProfileSetup } from './components/ProfileSetup';
 import { Dashboard } from './components/Dashboard';
 import { ChatbotInterface } from './components/ChatbotInterface';
+import { LogoutPage } from './components/LogoutPage';
 import { fetchAuthFromServer, setLoggedInUser, getAuthPayload, logout as logoutUser } from './api/client';
 import { getCurrentUser, updateUserProfile, getUserByUsername, getUserByEmail, fetchUserFromDatabase, createUserInDatabase } from './api/client';
 import type { User } from './api/types';
@@ -13,6 +14,7 @@ function App() {
   const [needsProfileSetup, setNeedsProfileSetup] = useState(false);
   const [currentView, setCurrentView] = useState<'home' | 'chatbot'>('home');
   const [activeChatbotUsername, setActiveChatbotUsername] = useState<string>('');
+  const [isLoggedOut, setIsLoggedOut] = useState(false);
 
   useEffect(() => {
     // Fetch ZeroTrust authentication on mount
@@ -196,9 +198,9 @@ function App() {
 
   const handleLogout = () => {
     logoutUser();
-    // Note: logoutUser() will redirect to ifaq.ai, so state updates below won't execute
     setCurrentUser(null);
     setCurrentView('home');
+    setIsLoggedOut(true);
   };
 
   const handleNavigateToChatbot = (username: string) => {
@@ -211,6 +213,11 @@ function App() {
     setCurrentView('home');
     window.history.pushState({}, '', '/');
   };
+
+  // Show logout page if user has logged out
+  if (isLoggedOut) {
+    return <LogoutPage />;
+  }
 
   // Show chatbot view if accessing /<username>
   if (currentView === 'chatbot') {
