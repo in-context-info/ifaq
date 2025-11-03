@@ -146,12 +146,28 @@ export function getLoggedInUser(): string | null {
 
 /**
  * Logout the current user
+ * Clears all login information, refreshes the browser, and redirects to ifaq.ai for ZeroTrust login
  */
 export function logout(): void {
+  // Clear all authentication-related localStorage items
   localStorage.removeItem(LOGGED_IN_USER_KEY);
   localStorage.removeItem(AUTH_PAYLOAD_KEY);
-  // Redirect to ifaq.ai main page
-  window.location.href = 'https://ifaq.ai';
+  
+  // Clear users storage (may contain sensitive user data)
+  localStorage.removeItem(USERS_STORAGE_KEY);
+  
+  // Clear any session storage related to auth
+  sessionStorage.clear();
+  
+  // Force a hard redirect to ifaq.ai with cache-busting parameters
+  // Using replace instead of href prevents back button access
+  // The timestamp ensures a fresh load bypassing cache
+  const timestamp = Date.now();
+  const logoutUrl = `https://ifaq.ai?logout=${timestamp}&t=${timestamp}`;
+  
+  // Force a complete page unload and redirect
+  // This ensures all browser state is cleared before redirect
+  window.location.replace(logoutUrl);
 }
 
 /**
