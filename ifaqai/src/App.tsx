@@ -117,9 +117,9 @@ function App() {
 
   const handleLogout = () => {
     logoutUser();
+    // Note: logoutUser() will redirect to ifaq.ai, so state updates below won't execute
     setCurrentUser(null);
     setCurrentView('home');
-    window.history.pushState({}, '', '/');
   };
 
   const handleNavigateToChatbot = (username: string) => {

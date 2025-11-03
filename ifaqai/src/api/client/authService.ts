@@ -150,6 +150,8 @@ export function getLoggedInUser(): string | null {
 export function logout(): void {
   localStorage.removeItem(LOGGED_IN_USER_KEY);
   localStorage.removeItem(AUTH_PAYLOAD_KEY);
+  // Redirect to ifaq.ai main page
+  window.location.href = 'https://ifaq.ai';
 }
 
 /**
