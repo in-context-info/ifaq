@@ -16,8 +16,10 @@ function dbUserToUser(dbUser: DbUser): User {
     name: `${dbUser.first_name} ${dbUser.last_name}`.trim(),
     firstName: dbUser.first_name,
     lastName: dbUser.last_name,
+    bio: dbUser.user_bio || undefined,
     faqs: [], // FAQs will be loaded separately if needed
     createdAt: dbUser.created_at,
+    modifiedAt: dbUser.modified_at || undefined,
   };
 }
 
@@ -35,6 +37,7 @@ function userToDbUser(user: User): Partial<DbUser> {
     user_name: user.username,
     first_name: firstName,
     last_name: lastName,
+    user_bio: user.bio || null,
     ...(user.userId && { user_id: user.userId }),
   };
 }
@@ -107,37 +110,43 @@ export async function upsertUser(db: D1Database, user: User): Promise<User> {
       const nameParts = user.name ? user.name.trim().split(/\s+/) : ['', ''];
       const firstName = user.firstName || nameParts[0] || '';
       const lastName = user.lastName || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : '');
+      const modifiedAt = new Date().toISOString();
+      const userBio = user.bio || null;
       
       const stmt = db.prepare(`
         UPDATE Users 
-        SET user_name = ?, first_name = ?, last_name = ?
+        SET user_name = ?, first_name = ?, last_name = ?, user_bio = ?, modified_at = ?
         WHERE email = ?
       `).bind(
         user.username,
         firstName,
         lastName,
+        userBio,
+        modifiedAt,
         user.email
       );
       await stmt.run();
       
       // Fetch updated user
       const updatedUser = await getUserByEmail(db, user.email);
-      return updatedUser || { ...existingUser, ...user };
+      return updatedUser || { ...existingUser, ...user, modifiedAt };
     } else {
       // Insert new user
       const nameParts = user.name ? user.name.trim().split(/\s+/) : ['', ''];
       const firstName = user.firstName || nameParts[0] || '';
       const lastName = user.lastName || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : '');
       const createdAt = new Date().toISOString();
+      const userBio = user.bio || null;
       
       const stmt = db.prepare(`
-        INSERT INTO Users (email, user_name, first_name, last_name, created_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO Users (email, user_name, first_name, last_name, user_bio, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
       `).bind(
         user.email,
         user.username,
         firstName,
         lastName,
+        userBio,
         createdAt
       );
       await stmt.run();

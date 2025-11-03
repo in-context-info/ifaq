@@ -11,7 +11,9 @@ export interface DbUser {
   user_name: string;
   first_name: string;
   last_name: string;
+  user_bio?: string | null;
   created_at: string; // ISO timestamp
+  modified_at?: string | null; // ISO timestamp
 }
 
 /**
@@ -28,6 +30,7 @@ export interface User {
   bio?: string;
   faqs: FAQ[];
   createdAt?: string;
+  modifiedAt?: string;
 }
 
 export interface ZeroTrustAuthPayload {
