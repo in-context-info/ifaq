@@ -115,6 +115,8 @@ export async function upsertUser(db: D1Database, user: User): Promise<User> {
       
       // 5.a write the user update to the database
       console.log('Updating user in database...');
+      console.log('Existing user email:', existingUser.email);
+      console.log('Update user email:', user.email);
       const sql = `UPDATE Users SET user_name = ?, first_name = ?, last_name = ?, user_bio = ?, modified_at = ? WHERE email = ?`;
       const sqlParams = [user.username, firstName, lastName, userBio, modifiedAt, user.email];
       console.log('SQL query:', sql);
@@ -125,12 +127,25 @@ export async function upsertUser(db: D1Database, user: User): Promise<User> {
       // Verify rows were affected
       const changes = (meta as any).changes || 0;
       if (changes === 0) {
-        console.warn(`Update query executed but no rows were affected for email: ${user.email}`);
+        console.error(`Update query executed but no rows were affected for email: ${user.email}`);
+        console.error('This means the WHERE clause did not match any rows.');
+        console.error('Checking if user exists with different email casing...');
+        // Try to find user with case-insensitive email
+        const checkUser = await db.prepare('SELECT email FROM Users WHERE LOWER(email) = LOWER(?)').bind(user.email).first();
+        if (checkUser) {
+          console.error(`Found user with different email casing: ${checkUser.email} vs ${user.email}`);
+          throw new Error(`Email case mismatch: found '${checkUser.email}' but updating with '${user.email}'`);
+        }
+        throw new Error(`Failed to update user: no rows affected for email ${user.email}. User may not exist in database.`);
       }
+      console.log(`Successfully updated ${changes} row(s)`);
       
       // Fetch updated user
       const updatedUser = await getUserByEmail(db, user.email);
-      return updatedUser || { ...existingUser, ...user, modifiedAt };
+      if (!updatedUser) {
+        throw new Error(`User was updated but could not be retrieved from database`);
+      }
+      return updatedUser;
     } else {
       // Insert new user
       const nameParts = user.name ? user.name.trim().split(/\s+/) : ['', ''];
