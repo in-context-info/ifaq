@@ -9,15 +9,6 @@ import { handleGetCurrentUser, handleCreateUser } from './userService';
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Simple test routes
-app.get('/message', (c) => {
-	return c.text('Hello from ifaqai!');
-});
-
-app.get('/random', (c) => {
-	return c.text(crypto.randomUUID());
-});
-
 // Auth routes
 app.get('/auth/me', async (c) => {
 	return handleAuthEndpoint(c.req.raw);
