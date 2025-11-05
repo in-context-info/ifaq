@@ -174,7 +174,7 @@ export async function upsertUser(db: D1Database, user: User): Promise<User> {
  */
 export async function handleGetCurrentUser(
   request: Request,
-  env: { DB?: D1Database }
+  env: { DB: D1Database }
 ): Promise<Response> {
   // Extract email from query parameter (required for filtering)
   const url = new URL(request.url);
@@ -184,13 +184,6 @@ export async function handleGetCurrentUser(
     return new Response(
       JSON.stringify({ error: 'Email parameter is required' }),
       { status: 400, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-
-  if (!env.DB) {
-    return new Response(
-      JSON.stringify({ error: 'Database binding not configured' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 
@@ -227,15 +220,8 @@ export async function handleGetCurrentUser(
  */
 export async function handleCreateUser(
   request: Request,
-  env: { DB?: D1Database }
+  env: { DB: D1Database }
 ): Promise<Response> {
-  if (!env.DB) {
-    return new Response(
-      JSON.stringify({ error: 'Database binding not configured' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-
   try {
     const user = await request.json() as User;
     
