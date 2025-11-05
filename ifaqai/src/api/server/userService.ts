@@ -113,19 +113,20 @@ export async function upsertUser(db: D1Database, user: User): Promise<User> {
       const modifiedAt = new Date().toISOString();
       const userBio = user.bio || null;
       
-      const stmt = db.prepare(`
-        UPDATE Users 
-        SET user_name = ?, first_name = ?, last_name = ?, user_bio = ?, modified_at = ?
-        WHERE email = ?
-      `).bind(
-        user.username,
-        firstName,
-        lastName,
-        userBio,
-        modifiedAt,
-        user.email
-      );
-      await stmt.run();
+      // 5.a write the user update to the database
+      console.log('Updating user in database...');
+      const sql = `UPDATE Users SET user_name = ?, first_name = ?, last_name = ?, user_bio = ?, modified_at = ? WHERE email = ?`;
+      const sqlParams = [user.username, firstName, lastName, userBio, modifiedAt, user.email];
+      console.log('SQL query:', sql);
+      console.log('SQL parameters:', sqlParams);
+      const { meta } = await db.prepare(sql).bind(...sqlParams).run();
+      console.log('Database update results:', meta);
+      
+      // Verify rows were affected
+      const changes = (meta as any).changes || 0;
+      if (changes === 0) {
+        console.warn(`Update query executed but no rows were affected for email: ${user.email}`);
+      }
       
       // Fetch updated user
       const updatedUser = await getUserByEmail(db, user.email);
@@ -138,22 +139,27 @@ export async function upsertUser(db: D1Database, user: User): Promise<User> {
       const createdAt = new Date().toISOString();
       const userBio = user.bio || null;
       
-      const stmt = db.prepare(`
-        INSERT INTO Users (email, user_name, first_name, last_name, user_bio, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).bind(
-        user.email,
-        user.username,
-        firstName,
-        lastName,
-        userBio,
-        createdAt
-      );
-      await stmt.run();
+      // 5.a write the user to the database
+      console.log('Inserting user into database...');
+      const sql = `INSERT INTO Users (email, user_name, first_name, last_name, user_bio, created_at) VALUES (?, ?, ?, ?, ?, ?)`;
+      const sqlParams = [user.email, user.username, firstName, lastName, userBio, createdAt];
+      console.log('SQL query:', sql);
+      console.log('SQL parameters:', sqlParams);
+      const { meta } = await db.prepare(sql).bind(...sqlParams).run();
+      console.log('Database insert results:', meta);
+      
+      // Verify rows were affected
+      const changes = (meta as any).changes || 0;
+      if (changes === 0) {
+        throw new Error(`Insert query executed but no rows were inserted for email: ${user.email}`);
+      }
       
       // Fetch the newly created user to get user_id
       const newUser = await getUserByEmail(db, user.email);
-      return newUser || { ...user, createdAt };
+      if (!newUser) {
+        throw new Error(`User was inserted but could not be retrieved from database`);
+      }
+      return newUser;
     }
   } catch (error) {
     console.error('Error upserting user to database:', error);
