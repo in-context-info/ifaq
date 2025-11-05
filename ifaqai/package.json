@@ -12,9 +12,9 @@
 		"start": "wrangler dev",
 		"start:remote": "wrangler dev --remote",
 		"db:init": "wrangler d1 execute hippocampus --local --file=./scripts/init-d1-schema.sql",
-		"db:init:remote": "wrangler d1 execute hippocampus --file=./scripts/init-d1-schema.sql",
+		"db:init:remote": "wrangler d1 execute hippocampus --remote --file=./scripts/init-d1-schema.sql",
 		"db:query": "wrangler d1 execute hippocampus --local --command",
-		"db:query:remote": "wrangler d1 execute hippocampus --command",
+		"db:query:remote": "wrangler d1 execute hippocampus --remote --command",
 		"test": "vitest",
 		"cf-typegen": "wrangler types"
 	},
