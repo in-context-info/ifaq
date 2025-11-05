@@ -113,8 +113,9 @@ export function getCurrentUser(): User | null {
 
 /**
  * Update user profile
+ * Updates both localStorage and D1 database
  */
-export function updateUserProfile(email: string, profile: ProfileData): User {
+export async function updateUserProfile(email: string, profile: ProfileData): Promise<User> {
   const users = getAllUsers();
   const userIndex = users.findIndex((u: User) => u.email === email);
   
@@ -122,15 +123,30 @@ export function updateUserProfile(email: string, profile: ProfileData): User {
     throw new Error('User not found');
   }
 
-  users[userIndex] = {
+  // Update in localStorage first
+  const updatedUser: User = {
     ...users[userIndex],
     username: profile.username,
     name: profile.name,
     bio: profile.bio,
   };
-
+  
+  users[userIndex] = updatedUser;
   saveUsers(users);
-  return users[userIndex];
+
+  // Also update in database
+  try {
+    const dbUser = await createUserInDatabase(updatedUser);
+    return dbUser;
+  } catch (error) {
+    console.error('Error updating profile in database, using localStorage version:', error);
+    // If it's a username conflict, rethrow it
+    if (error instanceof Error && error.message.includes('already taken')) {
+      throw error;
+    }
+    // Return localStorage version as fallback
+    return updatedUser;
+  }
 }
 
 /**

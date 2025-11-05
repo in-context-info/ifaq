@@ -16,12 +16,11 @@ app.get('/auth/me', async (c) => {
 
 // User routes
 app.get('/users/me', async (c) => {
-	return handleGetCurrentUser(c.req.raw, c.env);
+	return handleGetCurrentUser(c.req.raw, { DB: c.env.DB });
 });
 
 app.post('/users', async (c) => {
-	return handleCreateUser(c.req.raw, c.env);
+	return handleCreateUser(c.req.raw, { DB: c.env.DB });
 });
 
 export const apiRoutes = app;
-

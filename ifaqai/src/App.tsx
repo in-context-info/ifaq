@@ -170,26 +170,17 @@ function App() {
   const handleProfileComplete = async (profile: { username: string; name: string; bio: string }) => {
     if (currentUser?.email) {
       try {
-        // Update in localStorage first
-        const updatedUser = updateUserProfile(currentUser.email, profile);
-        
-        // Also update in database
-        try {
-          const dbUser = await createUserInDatabase(updatedUser);
-          setCurrentUser(dbUser);
-          setNeedsProfileSetup(false);
-        } catch (error) {
-          // Check if it's a username conflict
-          if (error instanceof Error && error.message.includes('already taken')) {
-            toast.error('Username already taken. Please choose a different username.');
-            // Keep user in profile setup mode
-            return;
-          }
-          console.error('Failed to update profile in database, using localStorage version:', error);
-          setCurrentUser(updatedUser);
-          setNeedsProfileSetup(false);
-        }
+        // updateUserProfile now handles both localStorage and database updates
+        const updatedUser = await updateUserProfile(currentUser.email, profile);
+        setCurrentUser(updatedUser);
+        setNeedsProfileSetup(false);
       } catch (error) {
+        // Check if it's a username conflict
+        if (error instanceof Error && error.message.includes('already taken')) {
+          toast.error('Username already taken. Please choose a different username.');
+          // Keep user in profile setup mode
+          return;
+        }
         console.error('Failed to update profile:', error);
         toast.error('Failed to update profile. Please try again.');
       }
