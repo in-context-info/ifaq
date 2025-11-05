@@ -63,6 +63,13 @@ export async function getUserByEmail(db: D1Database, email: string): Promise<Use
     return user;
   } catch (error) {
     console.error('Error fetching user from database:', error);
+    // Check if error is due to missing table
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes('no such table') || errorMessage.includes('Users')) {
+      console.warn('Users table does not exist. Please run: npm run db:init');
+      // Return null instead of throwing - table doesn't exist yet
+      return null;
+    }
     throw error;
   }
 }
@@ -104,6 +111,8 @@ export async function upsertUser(db: D1Database, user: User): Promise<User> {
     
     // Check if user exists by email
     const existingUser = await getUserByEmail(db, user.email);
+    
+    // If getUserByEmail returned null due to missing table, we'll handle it in the catch block
     
     if (existingUser) {
       // Update existing user
@@ -178,6 +187,12 @@ export async function upsertUser(db: D1Database, user: User): Promise<User> {
     }
   } catch (error) {
     console.error('Error upserting user to database:', error);
+    // Check if error is due to missing table
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes('no such table') || errorMessage.includes('Users')) {
+      console.error('Users table does not exist. Please run: npm run db:init');
+      throw new Error('Database table does not exist. Please initialize the database first.');
+    }
     throw error;
   }
 }

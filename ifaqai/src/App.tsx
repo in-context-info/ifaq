@@ -19,16 +19,26 @@ function App() {
   useEffect(() => {
     // Fetch ZeroTrust authentication on mount
     const initializeAuth = async () => {
-      // First, try to get auth from server (ZeroTrust)
-      const authPayload = await fetchAuthFromServer();
-      
-      if (authPayload) {
-        // User is authenticated via ZeroTrust
-        setLoggedInUser(authPayload);
+      try {
+        // First, try to get auth from server (ZeroTrust)
+        const authPayload = await fetchAuthFromServer();
         
-        // Try to fetch user from D1 database first
-        try {
-          let user = await fetchUserFromDatabase(authPayload.email);
+        if (authPayload) {
+          // User is authenticated via ZeroTrust
+          setLoggedInUser(authPayload);
+          
+          // Try to fetch user from D1 database first
+          // Use Promise.race with timeout to prevent hanging
+          let user: User | null = null;
+          try {
+            const dbQuery = fetchUserFromDatabase(authPayload.email);
+            const timeout = new Promise<null>((resolve) => 
+              setTimeout(() => resolve(null), 3000) // 3 second timeout
+            );
+            user = await Promise.race([dbQuery, timeout]);
+          } catch (dbError) {
+            console.error('Database query error (will use localStorage):', dbError);
+          }
           
           if (user) {
             // User exists in database
@@ -36,6 +46,7 @@ function App() {
             // Check if user needs profile setup (no username set or temporary username)
             const needsSetup = !user.username || user.username.startsWith('user_');
             setNeedsProfileSetup(needsSetup);
+            return; // Success - exit early
           } else {
             // User doesn't exist in database - create new user record
             // First, get or create user in localStorage (setLoggedInUser does this)
@@ -71,71 +82,49 @@ function App() {
               };
               
               try {
-                // Create in database
-                const createdUser = await createUserInDatabase(newUser);
+                // Create in database (with timeout)
+                const createPromise = createUserInDatabase(newUser);
+                const timeout = new Promise<User>((_, reject) => 
+                  setTimeout(() => reject(new Error('Database timeout')), 3000)
+                );
+                const createdUser = await Promise.race([createPromise, timeout]);
                 setCurrentUser(createdUser);
                 // New users always need profile setup
                 setNeedsProfileSetup(true);
               } catch (error) {
                 console.error('Error creating user in database, falling back to localStorage:', error);
                 // Fallback: create in localStorage via setLoggedInUser
-                // Wait a moment for setLoggedInUser to complete
-                setTimeout(() => {
-                  const localUser = getUserByEmail(authPayload.email);
-                  if (localUser) {
-                    setCurrentUser(localUser);
-                    setNeedsProfileSetup(true);
-                  }
-                }, 100);
+                // setLoggedInUser already creates localStorage entry, so get it
+                const localUser = getUserByEmail(authPayload.email);
+                if (localUser) {
+                  setCurrentUser(localUser);
+                  setNeedsProfileSetup(true);
+                } else {
+                  // If still not found, use the new user we created
+                  // setLoggedInUser should have created localStorage entry, but if not, use the newUser directly
+                  setCurrentUser(newUser);
+                  setNeedsProfileSetup(true);
+                }
               }
             }
           }
-        } catch (error) {
-          console.error('Error fetching user from database, falling back to localStorage:', error);
-          // Fallback to localStorage
-          const localUser = getUserByEmail(authPayload.email);
-          if (localUser) {
-            setCurrentUser(localUser);
-            const needsSetup = !localUser.username || localUser.username.startsWith('user_');
-            setNeedsProfileSetup(needsSetup);
-          } else {
-            // Create new user in localStorage and set needs setup
-            setTimeout(() => {
-              const newUser = getUserByEmail(authPayload.email);
-              if (newUser) {
-                setCurrentUser(newUser);
-                setNeedsProfileSetup(true);
-              }
-            }, 100);
-          }
-        }
       } else {
-        // Fallback: check localStorage for existing session
+        // No auth payload - check localStorage for existing session
         const storedPayload = getAuthPayload();
         if (storedPayload) {
-          // Try database first
+          // Try database first (with timeout)
+          let user: User | null = null;
           try {
-            let user = await fetchUserFromDatabase(storedPayload.email);
+            const dbQuery = fetchUserFromDatabase(storedPayload.email);
+            const timeout = new Promise<null>((resolve) => 
+              setTimeout(() => resolve(null), 3000)
+            );
+            user = await Promise.race([dbQuery, timeout]);
             if (user) {
               setCurrentUser(user);
               const needsSetup = !user.username || user.username.startsWith('user_');
               setNeedsProfileSetup(needsSetup);
               return;
-            } else {
-              // User doesn't exist in database - create new user record
-              const localUser = getUserByEmail(storedPayload.email);
-              if (localUser) {
-                // Create new user in database using localStorage user data
-                try {
-                  const newUser = await createUserInDatabase(localUser);
-                  setCurrentUser(newUser);
-                  setNeedsProfileSetup(true);
-                  return;
-                } catch (error) {
-                  console.error('Error creating user in database:', error);
-                  // Fall through to localStorage fallback
-                }
-              }
             }
           } catch (error) {
             console.error('Error fetching user from database:', error);
@@ -147,6 +136,24 @@ function App() {
             setCurrentUser(localUser);
             const needsSetup = !localUser.username || localUser.username.startsWith('user_');
             setNeedsProfileSetup(needsSetup);
+          } else {
+            // No user found anywhere - this shouldn't happen, but create a fallback
+            console.warn('No user found in database or localStorage');
+          }
+        } else {
+          // No auth and no stored payload - user needs to authenticate
+          console.log('No authentication found');
+        }
+      }
+      } catch (error) {
+        console.error('Error in initializeAuth:', error);
+        // Last resort: try to get user from localStorage
+        const storedPayload = getAuthPayload();
+        if (storedPayload) {
+          const localUser = getUserByEmail(storedPayload.email);
+          if (localUser) {
+            setCurrentUser(localUser);
+            setNeedsProfileSetup(true);
           }
         }
       }
