@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { isUsernameAvailable } from '../api/client';
 
 interface ProfileSetupProps {
-  onComplete: (profile: { username: string; name: string; bio: string }) => void;
+  onComplete: (profile: { username: string; name: string; bio: string }) => Promise<void>;
   initialEmail: string;
 }
 
@@ -17,8 +17,9 @@ export function ProfileSetup({ onComplete, initialEmail }: ProfileSetupProps) {
   const [username, setUsername] = useState('');
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate username
@@ -33,7 +34,21 @@ export function ProfileSetup({ onComplete, initialEmail }: ProfileSetupProps) {
       return;
     }
 
-    onComplete({ username, name, bio });
+    // Validate name
+    if (!name.trim()) {
+      toast.error('Name is required');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onComplete({ username, name, bio });
+    } catch (error) {
+      console.error('Error completing profile setup:', error);
+      // Error handling is done in handleProfileComplete
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -88,8 +103,8 @@ export function ProfileSetup({ onComplete, initialEmail }: ProfileSetupProps) {
               />
             </div>
 
-            <Button type="submit" className="w-full">
-              Complete Setup
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? 'Setting up...' : 'Complete Setup'}
             </Button>
           </form>
         </CardContent>

@@ -168,22 +168,28 @@ function App() {
   }, []);
 
   const handleProfileComplete = async (profile: { username: string; name: string; bio: string }) => {
-    if (currentUser?.email) {
-      try {
-        // updateUserProfile now handles both localStorage and database updates
-        const updatedUser = await updateUserProfile(currentUser.email, profile);
-        setCurrentUser(updatedUser);
-        setNeedsProfileSetup(false);
-      } catch (error) {
-        // Check if it's a username conflict
-        if (error instanceof Error && error.message.includes('already taken')) {
-          toast.error('Username already taken. Please choose a different username.');
-          // Keep user in profile setup mode
-          return;
-        }
-        console.error('Failed to update profile:', error);
-        toast.error('Failed to update profile. Please try again.');
+    if (!currentUser?.email) {
+      toast.error('User email not found. Please refresh the page.');
+      console.error('currentUser is null or missing email:', currentUser);
+      return;
+    }
+
+    try {
+      // updateUserProfile now handles both localStorage and database updates
+      const updatedUser = await updateUserProfile(currentUser.email, profile);
+      setCurrentUser(updatedUser);
+      setNeedsProfileSetup(false);
+      toast.success('Profile updated successfully!');
+    } catch (error) {
+      // Check if it's a username conflict
+      if (error instanceof Error && error.message.includes('already taken')) {
+        toast.error('Username already taken. Please choose a different username.');
+        // Keep user in profile setup mode
+        throw error; // Re-throw so ProfileSetup can handle it
       }
+      console.error('Failed to update profile:', error);
+      toast.error('Failed to update profile. Please try again.');
+      throw error; // Re-throw so ProfileSetup can handle it
     }
   };
 
