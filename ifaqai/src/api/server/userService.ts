@@ -238,9 +238,27 @@ export async function handleCreateUser(
   env: { DB: D1Database }
 ): Promise<Response> {
   try {
-    const user = await request.json() as User;
+    // Log request details
+    console.log('POST /api/users - Received request');
+    console.log('Request headers:', Object.fromEntries(request.headers.entries()));
+    
+    // Parse request body
+    let user: User;
+    try {
+      const bodyText = await request.text();
+      console.log('Request body:', bodyText);
+      user = JSON.parse(bodyText) as User;
+      console.log('Parsed user:', user);
+    } catch (parseError) {
+      console.error('Error parsing request body:', parseError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body', details: parseError instanceof Error ? parseError.message : String(parseError) }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
     
     if (!user.email) {
+      console.error('Email is missing from request');
       return new Response(
         JSON.stringify({ error: 'Email is required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -300,8 +318,23 @@ export async function handleCreateUser(
     );
   } catch (error) {
     console.error('Error creating user:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : String(error),
+      name: error instanceof Error ? error.name : 'Unknown',
+    });
+    
+    // Return more detailed error message
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+    const errorDetails = error instanceof Error && error.stack ? error.stack : String(error);
+    
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ 
+        error: 'Internal server error',
+        message: errorMessage,
+        // Include error details for debugging (remove in production if needed)
+        details: errorDetails
+      }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }

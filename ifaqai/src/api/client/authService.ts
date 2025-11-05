@@ -104,19 +104,68 @@ export function setLoggedInUser(payload: ZeroTrustAuthPayload): void {
 }
 
 /**
+ * Check if we're in local development mode
+ */
+function isLocalDevelopment(): boolean {
+  // Check if running on localhost
+  return window.location.hostname === 'localhost' || 
+         window.location.hostname === '127.0.0.1' ||
+         window.location.hostname.includes('localhost') ||
+         window.location.hostname.includes('127.0.0.1') ||
+         window.location.hostname.includes('localhost:8787');
+}
+
+/**
  * Fetch authentication payload from server (ZeroTrust)
  * The server extracts user info from Cloudflare ZeroTrust headers
+ * In local development, server returns a mock user
  */
 export async function fetchAuthFromServer(): Promise<ZeroTrustAuthPayload | null> {
   try {
-    const response = await fetch('/api/auth/me');
+    // In local dev, add query params for custom dev user
+    const url = isLocalDevelopment() 
+      ? '/api/auth/me?dev=true'
+      : '/api/auth/me';
+    
+    const response = await fetch(url);
     if (!response.ok) {
+      // In local dev, still try to return a default user
+      if (isLocalDevelopment()) {
+        console.log('[LOCAL DEV MODE] ZeroTrust auth failed, using default dev user');
+        return {
+          email: 'dev@localhost.local',
+          name: 'Dev User',
+        };
+      }
       return null;
     }
     const payload = await response.json() as ZeroTrustAuthPayload;
-    return payload;
+    
+    // Validate payload
+    if (payload && payload.email && payload.name) {
+      return payload;
+    }
+    
+    // In local dev, return default if invalid
+    if (isLocalDevelopment()) {
+      console.log('[LOCAL DEV MODE] Invalid auth payload, using default dev user');
+      return {
+        email: 'dev@localhost.local',
+        name: 'Dev User',
+      };
+    }
+    
+    return null;
   } catch (error) {
     console.error('Error fetching auth from server:', error);
+    // In local dev, return default user instead of null
+    if (isLocalDevelopment()) {
+      console.log('[LOCAL DEV MODE] Error fetching auth, using default dev user');
+      return {
+        email: 'dev@localhost.local',
+        name: 'Dev User',
+      };
+    }
     return null;
   }
 }
