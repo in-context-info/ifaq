@@ -1,0 +1,162 @@
+{
+	"info": {
+		"name": "iFAQ AI - D1 Database API",
+		"description": "Collection for testing D1 database API endpoints",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "Create User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{test_email}}\",\n  \"username\": \"{{test_username}}\",\n  \"name\": \"{{test_name}}\",\n  \"firstName\": \"Test\",\n  \"lastName\": \"User\",\n  \"bio\": \"Test user created via Postman\",\n  \"faqs\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/users",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users"]
+						},
+						"description": "Creates a new user in the D1 database. Returns 201 on success, 409 if username is taken."
+					},
+					"response": []
+				},
+				{
+					"name": "Get User by Email",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/users/me?email={{test_email}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "me"],
+							"query": [
+								{
+									"key": "email",
+									"value": "{{test_email}}",
+									"description": "User email address"
+								}
+							]
+						},
+						"description": "Fetches a user from D1 database by email. Returns 200 with user data, 404 if not found, 400 if email parameter is missing."
+					},
+					"response": []
+				},
+				{
+					"name": "Get User by Email (Missing Parameter)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/users/me",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "me"]
+						},
+						"description": "Tests error handling when email parameter is missing. Should return 400."
+					},
+					"response": []
+				},
+				{
+					"name": "Create User (Duplicate Username)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"different@example.com\",\n  \"username\": \"{{test_username}}\",\n  \"name\": \"Different User\",\n  \"firstName\": \"Different\",\n  \"lastName\": \"User\",\n  \"bio\": \"Trying to use same username\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/users",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users"]
+						},
+						"description": "Tests error handling for duplicate username. Should return 409 Conflict."
+					},
+					"response": []
+				},
+				{
+					"name": "Update User (Same Email)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{test_email}}\",\n  \"username\": \"{{test_username}}_updated\",\n  \"name\": \"{{test_name}} Updated\",\n  \"firstName\": \"Test\",\n  \"lastName\": \"User Updated\",\n  \"bio\": \"Updated bio via Postman\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/users",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users"]
+						},
+						"description": "Updates an existing user by posting with the same email. Should return 200 or 201."
+					},
+					"response": []
+				}
+			],
+			"description": "User management endpoints"
+		},
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Get Auth Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/me",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "me"]
+						},
+						"description": "Gets ZeroTrust authentication information. Requires Cloudflare ZeroTrust headers. Returns 401 if not authenticated."
+					},
+					"response": []
+				}
+			],
+			"description": "Authentication endpoints"
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8787",
+			"type": "string"
+		},
+		{
+			"key": "test_email",
+			"value": "test@example.com",
+			"type": "string"
+		},
+		{
+			"key": "test_username",
+			"value": "testuser",
+			"type": "string"
+		},
+		{
+			"key": "test_name",
+			"value": "Test User",
+			"type": "string"
+		}
+	]
+}
+
