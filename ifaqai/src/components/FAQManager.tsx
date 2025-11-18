@@ -5,23 +5,19 @@ import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Label } from './ui/label';
-import { Plus, Edit2, Trash2, MessageSquare } from 'lucide-react';
+import { Plus, Edit2, Trash2, MessageSquare, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createFAQEntry, updateFAQEntry, deleteFAQEntry } from '../api/client';
-
-interface FAQ {
-  question: string;
-  answer: string;
-  id: string;
-}
+import type { FAQ } from '../api/types';
 
 interface FAQManagerProps {
   faqs: FAQ[];
   userId?: string | number;
   onUpdate: (faqs: FAQ[]) => void;
+  onRefresh?: () => Promise<void> | void;
 }
 
-export function FAQManager({ faqs, userId, onUpdate }: FAQManagerProps) {
+export function FAQManager({ faqs, userId, onUpdate, onRefresh }: FAQManagerProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingFAQ, setEditingFAQ] = useState<FAQ | null>(null);
   const [question, setQuestion] = useState('');
@@ -29,6 +25,8 @@ export function FAQManager({ faqs, userId, onUpdate }: FAQManagerProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const isBusy = isSubmitting || isEditing || deletingId !== null;
 
   const handleAddFAQ = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,11 +47,14 @@ export function FAQManager({ faqs, userId, onUpdate }: FAQManagerProps) {
       answer: answer.trim(),
     };
 
+    const previousFaqs = [...faqs];
+
     try {
       setIsSubmitting(true);
       // Optimistically update UI
       onUpdate([...faqs, newFAQ]);
       await createFAQEntry(userId, newFAQ.question, newFAQ.answer);
+      await onRefresh?.();
       toast.success('FAQ submitted. Vectorization will finish shortly.');
       setQuestion('');
       setAnswer('');
@@ -63,7 +64,7 @@ export function FAQManager({ faqs, userId, onUpdate }: FAQManagerProps) {
       const message = error instanceof Error ? error.message : 'Failed to create FAQ';
       toast.error(message);
       // Revert optimistic update
-      onUpdate(faqs);
+      onUpdate([...previousFaqs]);
     } finally {
       setIsSubmitting(false);
     }
@@ -88,10 +89,13 @@ export function FAQManager({ faqs, userId, onUpdate }: FAQManagerProps) {
         : faq
     );
 
+    const previousFaqs = [...faqs];
+
     try {
       setIsEditing(true);
       onUpdate(updatedFAQs);
       await updateFAQEntry(editingFAQ.id, userId, question.trim(), answer.trim());
+      await onRefresh?.();
       toast.success('FAQ updated successfully');
       setQuestion('');
       setAnswer('');
@@ -101,7 +105,7 @@ export function FAQManager({ faqs, userId, onUpdate }: FAQManagerProps) {
       const message = error instanceof Error ? error.message : 'Failed to update FAQ';
       toast.error(message);
       // Revert to previous FAQs
-      onUpdate(faqs);
+      onUpdate([...previousFaqs]);
     } finally {
       setIsEditing(false);
     }
@@ -114,17 +118,19 @@ export function FAQManager({ faqs, userId, onUpdate }: FAQManagerProps) {
     }
 
     const updatedFAQs = faqs.filter((faq) => faq.id !== id);
+    const previousFaqs = [...faqs];
 
     try {
       setDeletingId(id);
       onUpdate(updatedFAQs);
       await deleteFAQEntry(id, userId);
+      await onRefresh?.();
       toast.success('FAQ deleted successfully');
     } catch (error) {
       console.error('Failed to delete FAQ:', error);
       const message = error instanceof Error ? error.message : 'Failed to delete FAQ';
       toast.error(message);
-      onUpdate(faqs);
+      onUpdate([...previousFaqs]);
     } finally {
       setDeletingId(null);
     }
@@ -154,9 +160,9 @@ export function FAQManager({ faqs, userId, onUpdate }: FAQManagerProps) {
                 Add question and answer pairs to train your AI chatbot
               </CardDescription>
             </div>
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <Dialog open={isAddDialogOpen} onOpenChange={(open) => !isBusy && setIsAddDialogOpen(open)}>
               <DialogTrigger asChild>
-                <Button>
+                <Button disabled={isBusy}>
                   <Plus className="w-4 h-4 mr-2" />
                   Add FAQ
                 </Button>
@@ -222,7 +228,7 @@ export function FAQManager({ faqs, userId, onUpdate }: FAQManagerProps) {
             <p className="text-gray-600 mb-4">
               Start adding question-answer pairs to train your chatbot
             </p>
-            <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Button onClick={() => !isBusy && setIsAddDialogOpen(true)} disabled={isBusy}>
               <Plus className="w-4 h-4 mr-2" />
               Add Your First FAQ
             </Button>
@@ -247,6 +253,7 @@ export function FAQManager({ faqs, userId, onUpdate }: FAQManagerProps) {
                       variant="outline"
                       size="sm"
                       onClick={() => openEditDialog(faq)}
+                      disabled={isBusy}
                     >
                       <Edit2 className="w-4 h-4 mr-2" />
                       Edit
@@ -255,9 +262,19 @@ export function FAQManager({ faqs, userId, onUpdate }: FAQManagerProps) {
                       variant="outline"
                       size="sm"
                       onClick={() => handleDeleteFAQ(faq.id)}
+                      disabled={deletingId === faq.id}
                     >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete
+                      {deletingId === faq.id ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>

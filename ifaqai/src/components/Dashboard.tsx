@@ -6,8 +6,8 @@ import { Avatar, AvatarFallback } from './ui/avatar';
 import { Badge } from './ui/badge';
 import { FAQManager } from './FAQManager';
 import { Bot, LogOut, ExternalLink, User as UserIcon } from 'lucide-react';
-import { updateUserFAQs } from '../api/client';
-import type { User } from '../api/types';
+import { fetchUserFromDatabase } from '../api/client';
+import type { User, FAQ } from '../api/types';
 
 interface DashboardProps {
   user: User;
@@ -17,12 +17,18 @@ interface DashboardProps {
 }
 
 export function Dashboard({ user, onLogout, onNavigateToChatbot, onUpdateUser }: DashboardProps) {
-  const handleFAQsUpdate = (faqs: { question: string; answer: string; id: string }[]) => {
+  const handleFAQsUpdate = (faqs: FAQ[]) => {
+    onUpdateUser({ ...user, faqs });
+  };
+
+  const refreshUserFromServer = async () => {
     try {
-      const updatedUser = updateUserFAQs(user.username, faqs);
-      onUpdateUser(updatedUser);
+      const freshUser = await fetchUserFromDatabase(user.email);
+      if (freshUser) {
+        onUpdateUser(freshUser);
+      }
     } catch (error) {
-      console.error('Failed to update FAQs:', error);
+      console.error('Failed to refresh user from server:', error);
     }
   };
 
@@ -106,6 +112,7 @@ export function Dashboard({ user, onLogout, onNavigateToChatbot, onUpdateUser }:
               faqs={user.faqs}
               userId={user.userId}
               onUpdate={handleFAQsUpdate}
+              onRefresh={refreshUserFromServer}
             />
           </TabsContent>
 
