@@ -35,9 +35,9 @@
 	],
 	"workflows": [
 		{
-			"name": "FAQ_WORKFLOW",
-			"class_name": "FAQWorkflow",
-			"file": "src/workflows/faqWorkflow.ts"
+			"name": "faq",
+			"binding": "FAQ_WORKFLOW",
+			"class_name": "FAQWorkflow"
 		}
 	],
 	"custom_domains": [
