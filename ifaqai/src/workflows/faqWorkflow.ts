@@ -28,15 +28,15 @@ export class FAQWorkflow extends WorkflowEntrypoint<Env, FAQWorkflowPayload> {
       `;
 
       console.log('Executing query with params:', { userId, question, answer });
-      const result = await env.DB.prepare(query).bind(userId, question, answer).run();
+      const insertResult = await env.DB.prepare(query).bind(userId, question, answer).run();
       
-      console.log('Query result:', result);
+      console.log('Query result:', insertResult);
       
-      if (!result.success) {
-        throw new Error(`Database insert failed: ${result.error || 'Unknown error'}`);
+      if (!insertResult.success) {
+        throw new Error(`Database insert failed: ${insertResult.error || 'Unknown error'}`);
       }
       
-      const { meta } = result;
+      const { meta } = insertResult;
       
       if (!meta.last_row_id) {
         throw new Error("Failed to create FAQ - no row ID returned");
@@ -46,14 +46,14 @@ export class FAQWorkflow extends WorkflowEntrypoint<Env, FAQWorkflowPayload> {
 
       // Fetch the created record
       const selectQuery = `SELECT * FROM FAQs WHERE faq_id = ?`;
-      const result = await env.DB.prepare(selectQuery).bind(meta.last_row_id).first();
+      const fetchedRecord = await env.DB.prepare(selectQuery).bind(meta.last_row_id).first();
       
-      if (!result) {
+      if (!fetchedRecord) {
         throw new Error("Failed to retrieve created FAQ");
       }
       
-      console.log('Retrieved FAQ record:', result);
-      return result as any;
+      console.log('Retrieved FAQ record:', fetchedRecord);
+      return fetchedRecord as any;
     });
 
     // Step 2: Generate embedding from question and answer
