@@ -102,7 +102,11 @@ export function Dashboard({ user, onLogout, onNavigateToChatbot, onUpdateUser }:
           </TabsList>
 
           <TabsContent value="faqs" className="mt-6">
-            <FAQManager faqs={user.faqs} onUpdate={handleFAQsUpdate} />
+            <FAQManager
+              faqs={user.faqs}
+              userId={user.userId}
+              onUpdate={handleFAQsUpdate}
+            />
           </TabsContent>
 
           <TabsContent value="profile" className="mt-6">

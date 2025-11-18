@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from './ui/label';
 import { Plus, Edit2, Trash2, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
+import { createFAQEntry } from '../api/client';
 
 interface FAQ {
   question: string;
@@ -16,20 +17,27 @@ interface FAQ {
 
 interface FAQManagerProps {
   faqs: FAQ[];
+  userId?: string | number;
   onUpdate: (faqs: FAQ[]) => void;
 }
 
-export function FAQManager({ faqs, onUpdate }: FAQManagerProps) {
+export function FAQManager({ faqs, userId, onUpdate }: FAQManagerProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingFAQ, setEditingFAQ] = useState<FAQ | null>(null);
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleAddFAQ = (e: React.FormEvent) => {
+  const handleAddFAQ = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!question.trim() || !answer.trim()) {
       toast.error('Please fill in both question and answer');
+      return;
+    }
+
+    if (!userId && userId !== 0) {
+      toast.error('Missing user ID. Please ensure your profile is saved.');
       return;
     }
 
@@ -39,11 +47,24 @@ export function FAQManager({ faqs, onUpdate }: FAQManagerProps) {
       answer: answer.trim(),
     };
 
-    onUpdate([...faqs, newFAQ]);
-    setQuestion('');
-    setAnswer('');
-    setIsAddDialogOpen(false);
-    toast.success('FAQ added successfully');
+    try {
+      setIsSubmitting(true);
+      // Optimistically update UI
+      onUpdate([...faqs, newFAQ]);
+      await createFAQEntry(userId, newFAQ.question, newFAQ.answer);
+      toast.success('FAQ submitted. Vectorization will finish shortly.');
+      setQuestion('');
+      setAnswer('');
+      setIsAddDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to create FAQ:', error);
+      const message = error instanceof Error ? error.message : 'Failed to create FAQ';
+      toast.error(message);
+      // Revert optimistic update
+      onUpdate(faqs);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleEditFAQ = (e: React.FormEvent) => {
@@ -145,7 +166,9 @@ export function FAQManager({ faqs, onUpdate }: FAQManagerProps) {
                     >
                       Cancel
                     </Button>
-                    <Button type="submit">Add FAQ</Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting ? 'Creating...' : 'Add FAQ'}
+                    </Button>
                   </div>
                 </form>
               </DialogContent>
