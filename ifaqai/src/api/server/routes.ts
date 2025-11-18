@@ -24,13 +24,9 @@ app.get('/auth/me', async (c) => {
 });
 
 // User routes
-app.get('/users/me', async (c) => {
-	return handleGetCurrentUser(c.req.raw, c.env);
-});
+app.get('/users/me', handleGetCurrentUser);
 
-app.post('/users', async (c) => {
-	return handleCreateUser(c.req.raw, c.env);
-});
+app.post('/users', handleCreateUser);
 
 export const apiRoutes = app;
 

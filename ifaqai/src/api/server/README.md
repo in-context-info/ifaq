@@ -71,18 +71,22 @@ The `Users` table should have the following columns:
 #### Example SQL Schema
 
 ```sql
-CREATE TABLE Users (
+CREATE TABLE IF NOT EXISTS Users (
   user_id INTEGER PRIMARY KEY AUTOINCREMENT,
   email TEXT UNIQUE NOT NULL,
   user_name TEXT NOT NULL,
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
-  created_at TEXT DEFAULT (datetime('now')) NOT NULL
+  user_bio TEXT,
+  created_at TEXT DEFAULT (datetime('now')) NOT NULL,
+  modified_at TEXT
 );
 
-CREATE INDEX idx_email ON Users(email);
-CREATE INDEX idx_user_name ON Users(user_name);
+CREATE INDEX IF NOT EXISTS idx_email ON Users(email);
+CREATE INDEX IF NOT EXISTS idx_user_name ON Users(user_name);
 ```
+
+**Note:** A complete migration file is available at `migrations/001_create_users_table.sql`
 
 **Note:** The API combines `first_name` and `last_name` into a single `name` field in responses for backward compatibility with the frontend.
 

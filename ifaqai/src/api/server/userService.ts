@@ -3,19 +3,26 @@
  * Handles database queries for user data
  */
 
+import type { Context } from 'hono';
+import type { Env } from '../../types/env';
 import type { User, DbUser } from '../types';
 
 /**
  * Convert database user to application user
  */
 function dbUserToUser(dbUser: DbUser): User {
+  // Handle null/undefined values safely
+  const firstName = dbUser.first_name || '';
+  const lastName = dbUser.last_name || '';
+  const fullName = `${firstName} ${lastName}`.trim() || dbUser.email.split('@')[0];
+  
   return {
     userId: dbUser.user_id,
     email: dbUser.email,
-    username: dbUser.user_name,
-    name: `${dbUser.first_name} ${dbUser.last_name}`.trim(),
-    firstName: dbUser.first_name,
-    lastName: dbUser.last_name,
+    username: dbUser.user_name || '',
+    name: fullName,
+    firstName: firstName || undefined,
+    lastName: lastName || undefined,
     bio: dbUser.user_bio || undefined,
     faqs: [], // FAQs will be loaded separately if needed
     createdAt: dbUser.created_at,
@@ -173,44 +180,47 @@ export async function upsertUser(db: D1Database, user: User): Promise<User> {
  * Filters by email column in Users table
  */
 export async function handleGetCurrentUser(
-  request: Request,
-  env: { DB: D1Database }
+  c: Context<{ Bindings: Env }>
 ): Promise<Response> {
   // Extract email from query parameter (required for filtering)
-  const url = new URL(request.url);
-  const email = url.searchParams.get('email');
+  const email = c.req.query('email');
   
   if (!email) {
-    return new Response(
-      JSON.stringify({ error: 'Email parameter is required' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
-    );
+    return c.json({ error: 'Email parameter is required' }, 400);
+  }
+
+  // Check if database is available
+  if (!c.env.DB) {
+    console.error('Database binding (DB) is not available');
+    return c.json({ 
+      error: 'Database not configured',
+      details: 'DB binding is missing from environment'
+    }, 500);
   }
 
   try {
     // Query Users table filtering by email column
-    const user = await getUserByEmail(env.DB, email);
+    // Access D1 database from Hono context: c.env.DB
+    const user = await getUserByEmail(c.env.DB, email);
     
     if (!user) {
-      return new Response(
-        JSON.stringify({ error: 'User not found' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
-      );
+      return c.json({ error: 'User not found' }, 404);
     }
 
     // Remove password from response if it exists
     const { password, ...userWithoutPassword } = user;
     
-    return new Response(
-      JSON.stringify(userWithoutPassword),
-      { headers: { 'Content-Type': 'application/json' } }
-    );
+    return c.json(userWithoutPassword);
   } catch (error) {
     console.error('Error fetching user:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    return c.json({ 
+      error: 'Internal server error',
+      details: errorMessage,
+      ...(errorStack && { stack: errorStack })
+    }, 500);
   }
 }
 
@@ -219,21 +229,27 @@ export async function handleGetCurrentUser(
  * Creates or updates a user in the database
  */
 export async function handleCreateUser(
-  request: Request,
-  env: { DB: D1Database }
+  c: Context<{ Bindings: Env }>
 ): Promise<Response> {
   try {
-    const user = await request.json() as User;
+    const user = await c.req.json() as User;
     
     if (!user.email) {
-      return new Response(
-        JSON.stringify({ error: 'Email is required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return c.json({ error: 'Email is required' }, 400);
+    }
+
+    // Check if database is available
+    if (!c.env.DB) {
+      console.error('Database binding (DB) is not available');
+      return c.json({ 
+        error: 'Database not configured',
+        details: 'DB binding is missing from environment'
+      }, 500);
     }
 
     // Check if user already exists by email
-    const existingUserByEmail = await getUserByEmail(env.DB, user.email);
+    // Access D1 database from Hono context: c.env.DB
+    const existingUserByEmail = await getUserByEmail(c.env.DB, user.email);
     
     // Ensure username is set (use temporary if not provided)
     if (!user.username || user.username.startsWith('user_')) {
@@ -242,7 +258,7 @@ export async function handleCreateUser(
       // Check if temp username is taken (very unlikely, but check anyway)
       let attempts = 0;
       while (attempts < 10) {
-        const existingUser = await getUserByUsername(env.DB, tempUsername);
+        const existingUser = await getUserByUsername(c.env.DB, tempUsername);
         if (!existingUser) {
           break;
         }
@@ -252,7 +268,7 @@ export async function handleCreateUser(
       user.username = tempUsername;
     } else {
       // Check if the username is already taken in the database
-      const existingUserByUsername = await getUserByUsername(env.DB, user.username);
+      const existingUserByUsername = await getUserByUsername(c.env.DB, user.username);
       
       if (existingUserByUsername) {
         // Username is taken - check if it's by the same user (updating) or different user
@@ -260,10 +276,7 @@ export async function handleCreateUser(
         
         if (!isSameUser) {
           // Username is taken by a different user - reject
-          return new Response(
-            JSON.stringify({ error: 'Username already taken' }),
-            { status: 409, headers: { 'Content-Type': 'application/json' } }
-          );
+          return c.json({ error: 'Username already taken' }, 409);
         }
         // If isSameUser is true, allow it (user updating their own username)
       }
@@ -271,24 +284,22 @@ export async function handleCreateUser(
     }
 
     // Create or update user in database
-    const createdUser = await upsertUser(env.DB, user);
+    const createdUser = await upsertUser(c.env.DB, user);
 
     // Remove password from response if it exists
     const { password, ...userWithoutPassword } = createdUser;
     
-    return new Response(
-      JSON.stringify(userWithoutPassword),
-      { 
-        status: 201,
-        headers: { 'Content-Type': 'application/json' } 
-      }
-    );
+    return c.json(userWithoutPassword, 201);
   } catch (error) {
     console.error('Error creating user:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    return c.json({ 
+      error: 'Internal server error',
+      details: errorMessage,
+      ...(errorStack && { stack: errorStack })
+    }, 500);
   }
 }
 

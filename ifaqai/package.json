@@ -8,6 +8,7 @@
 		"build": "npm run build:frontend && npm run build:worker",
 		"deploy": "npm run build && wrangler deploy",
 		"dev": "wrangler dev",
+		"dev:remote": "wrangler dev --remote",
 		"start": "wrangler dev",
 		"test": "vitest",
 		"cf-typegen": "wrangler types"
