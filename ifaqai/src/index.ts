@@ -49,3 +49,6 @@ app.get('*', async (c) => {
 });
 
 export default app;
+
+// Export workflows required by Wrangler
+export { FAQWorkflow } from './workflows/faqWorkflow';

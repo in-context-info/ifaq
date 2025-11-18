@@ -39,10 +39,5 @@
 			"binding": "FAQ_WORKFLOW",
 			"class_name": "FAQWorkflow"
 		}
-	],
-	"custom_domains": [
-		{
-			"domain": "ifaq.ai"
-		}
 	]
 }
