@@ -5,7 +5,7 @@
 
 import type { Context } from 'hono';
 import type { Env } from '../../types/env';
-import type { User, DbUser } from '../types';
+import type { User, DbUser, FAQ } from '../types';
 
 /**
  * Convert database user to application user
@@ -49,13 +49,56 @@ function userToDbUser(user: User): Partial<DbUser> {
   };
 }
 
+interface DbFaq {
+  faq_id: number;
+  user_id: number;
+  question: string;
+  answer: string;
+  created_at?: string;
+  modified_at?: string;
+}
+
+function dbFaqToFaq(dbFaq: DbFaq): FAQ {
+  const fallbackId = dbFaq.faq_id ?? Date.now();
+  return {
+    id: String(fallbackId),
+    question: dbFaq.question,
+    answer: dbFaq.answer,
+  };
+}
+
+export async function getFAQsByUserId(db: D1Database, userId: number | string): Promise<FAQ[]> {
+  try {
+    const statement = db
+      .prepare(
+        'SELECT faq_id, question, answer, created_at, modified_at FROM FAQs WHERE user_id = ? ORDER BY created_at DESC'
+      )
+      .bind(userId);
+
+    const { results } = await statement.all<DbFaq>();
+
+    if (!results || results.length === 0) {
+      return [];
+    }
+
+    return results.map(dbFaqToFaq);
+  } catch (error) {
+    console.error('Error fetching FAQs for user:', error);
+    return [];
+  }
+}
+
 /**
  * Get user from D1 database by email
  * @param db - D1 database binding
  * @param email - User email address
  * @returns User object or null if not found
  */
-export async function getUserByEmail(db: D1Database, email: string): Promise<User | null> {
+export async function getUserByEmail(
+  db: D1Database,
+  email: string,
+  options?: { includeFaqs?: boolean }
+): Promise<User | null> {
   try {
     const stmt = db.prepare('SELECT * FROM Users WHERE email = ?').bind(email);
     const result = await stmt.first<DbUser>();
@@ -66,7 +109,11 @@ export async function getUserByEmail(db: D1Database, email: string): Promise<Use
 
     // Convert database user to application user
     const user = dbUserToUser(result);
-    
+
+    if (options?.includeFaqs && user.userId !== undefined && user.userId !== null) {
+      user.faqs = await getFAQsByUserId(db, user.userId);
+    }
+
     return user;
   } catch (error) {
     console.error('Error fetching user from database:', error);
@@ -80,7 +127,11 @@ export async function getUserByEmail(db: D1Database, email: string): Promise<Use
  * @param username - Username (user_name)
  * @returns User object or null if not found
  */
-export async function getUserByUsername(db: D1Database, username: string): Promise<User | null> {
+export async function getUserByUsername(
+  db: D1Database,
+  username: string,
+  options?: { includeFaqs?: boolean }
+): Promise<User | null> {
   try {
     const stmt = db.prepare('SELECT * FROM Users WHERE user_name = ?').bind(username);
     const result = await stmt.first<DbUser>();
@@ -91,7 +142,11 @@ export async function getUserByUsername(db: D1Database, username: string): Promi
 
     // Convert database user to application user
     const user = dbUserToUser(result);
-    
+
+    if (options?.includeFaqs && user.userId !== undefined && user.userId !== null) {
+      user.faqs = await getFAQsByUserId(db, user.userId);
+    }
+
     return user;
   } catch (error) {
     console.error('Error fetching user from database:', error);
@@ -201,7 +256,7 @@ export async function handleGetCurrentUser(
   try {
     // Query Users table filtering by email column
     // Access D1 database from Hono context: c.env.DB
-    const user = await getUserByEmail(c.env.DB, email);
+    const user = await getUserByEmail(c.env.DB, email, { includeFaqs: true });
     
     if (!user) {
       return c.json({ error: 'User not found' }, 404);
@@ -285,9 +340,11 @@ export async function handleCreateUser(
 
     // Create or update user in database
     const createdUser = await upsertUser(c.env.DB, user);
+    const createdUserWithFaqs = await getUserByEmail(c.env.DB, user.email, { includeFaqs: true });
+    const responseUser = createdUserWithFaqs || createdUser;
 
     // Remove password from response if it exists
-    const { password, ...userWithoutPassword } = createdUser;
+    const { password, ...userWithoutPassword } = responseUser;
     
     return c.json(userWithoutPassword, 201);
   } catch (error) {

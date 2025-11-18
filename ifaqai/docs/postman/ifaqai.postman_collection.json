@@ -1,0 +1,132 @@
+{
+  "info": {
+    "name": "iFAQ AI - D1 Database API",
+    "_postman_id": "c2f0b806-0000-4000-8000-ifadpostman000",
+    "description": "Postman collection for iFAQ AI Cloudflare Worker APIs (D1 + Vectorize). Set the `baseUrl` variable to your Worker URL e.g. https://ifaqai.example.workers.dev or http://127.0.0.1:8787 when running wrangler dev.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get Current User",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/users/me?email={{email}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "users",
+            "me"
+          ],
+          "query": [
+            {
+              "key": "email",
+              "value": "{{email}}"
+            }
+          ]
+        },
+        "description": "Fetch a user by email from D1."
+      },
+      "response": []
+    },
+    {
+      "name": "Create or Update User",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"username\": \"user_name\",\n  \"name\": \"User Name\",\n  \"bio\": \"Short bio\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/users",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "users"
+          ]
+        },
+        "description": "Upsert a user into D1."
+      },
+      "response": []
+    },
+    {
+      "name": "Create FAQ (start workflow)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": {{userId}},\n  \"question\": \"How do I reset my password?\",\n  \"answer\": \"Go to Settings → Security and click Reset Password.\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/faqs",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "faqs"
+          ]
+        },
+        "description": "Starts the FAQ workflow that writes to D1 and Vectorize."
+      },
+      "response": []
+    },
+    {
+      "name": "Get FAQ Workflow Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/faqs/{{workflowId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "faqs",
+            "{{workflowId}}"
+          ]
+        },
+        "description": "Check workflow status (pending, completed, failed). Set `workflowId` variable from the Create FAQ response."
+      },
+      "response": []
+    }
+  ],
+  "event": [],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8787"
+    },
+    {
+      "key": "email",
+      "value": "user@example.com"
+    },
+    {
+      "key": "userId",
+      "value": "1"
+    },
+    {
+      "key": "workflowId",
+      "value": ""
+    }
+  ]
+}
+

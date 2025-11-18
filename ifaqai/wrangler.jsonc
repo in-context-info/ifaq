@@ -33,9 +33,11 @@
 			"database_id": "c8ed78d0-79ae-45ff-9e12-5cd102aca9cb"
 		}
 	],
-	"custom_domains": [
+	"workflows": [
 		{
-			"domain": "ifaq.ai"
+			"name": "faq",
+			"binding": "FAQ_WORKFLOW",
+			"class_name": "FAQWorkflow"
 		}
 	]
 }
