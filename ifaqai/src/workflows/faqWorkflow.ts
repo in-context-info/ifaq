@@ -17,18 +17,32 @@ export class FAQWorkflow extends WorkflowEntrypoint<Env, FAQWorkflowPayload> {
     const env = this.env;
     const { userId, question, answer } = event.payload;
 
+    console.log('FAQWorkflow started:', { userId, question, answer });
+
     // Step 1: Create database record
     const record = await step.do(`create database record`, async () => {
+      console.log('Creating database record...');
       const query = `
         INSERT INTO FAQs (user_id, question, answer) 
         VALUES (?, ?, ?)
       `;
 
-      const { meta } = await env.DB.prepare(query).bind(userId, question, answer).run();
+      console.log('Executing query with params:', { userId, question, answer });
+      const result = await env.DB.prepare(query).bind(userId, question, answer).run();
+      
+      console.log('Query result:', result);
+      
+      if (!result.success) {
+        throw new Error(`Database insert failed: ${result.error || 'Unknown error'}`);
+      }
+      
+      const { meta } = result;
       
       if (!meta.last_row_id) {
-        throw new Error("Failed to create FAQ");
+        throw new Error("Failed to create FAQ - no row ID returned");
       }
+
+      console.log('FAQ created with ID:', meta.last_row_id);
 
       // Fetch the created record
       const selectQuery = `SELECT * FROM FAQs WHERE faq_id = ?`;
@@ -38,6 +52,7 @@ export class FAQWorkflow extends WorkflowEntrypoint<Env, FAQWorkflowPayload> {
         throw new Error("Failed to retrieve created FAQ");
       }
       
+      console.log('Retrieved FAQ record:', result);
       return result as any;
     });
 

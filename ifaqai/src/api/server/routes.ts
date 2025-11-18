@@ -29,32 +29,57 @@ app.get('/users/me', handleGetCurrentUser);
 app.post('/users', handleCreateUser);
 
 // FAQ routes
-app.post('/faqs', async (c) => {
-	const { userId, question, answer } = await c.req.json();
-	
-	if (!question || !answer) {
-		return c.text('Missing question or answer', 400);
-	}
-	
-	if (!userId) {
-		return c.text('Missing userId', 400);
-	}
-	
+app.get('/faqs/:workflowId', async (c) => {
+	const workflowId = c.req.param('workflowId');
 	try {
-		await c.env.FAQ_WORKFLOW.create({
+		const instance = await c.env.FAQ_WORKFLOW.get(workflowId);
+		const status = await instance.status();
+		return c.json(status);
+	} catch (error) {
+		return c.json({ error: 'Workflow not found' }, 404);
+	}
+});
+
+app.post('/faqs', async (c) => {
+	try {
+		const { userId, question, answer } = await c.req.json();
+		
+		console.log('FAQ creation request:', { userId, question, answer });
+		
+		if (!question || !answer) {
+			return c.text('Missing question or answer', 400);
+		}
+		
+		if (!userId) {
+			return c.text('Missing userId', 400);
+		}
+		
+		console.log('Creating workflow instance...');
+		const workflowInstance = await c.env.FAQ_WORKFLOW.create({
 			params: {
 				userId,
 				question,
 				answer,
 			},
 		});
-		return c.text('Created FAQ', 201);
+		
+		console.log('Workflow instance created:', workflowInstance.id);
+		
+		// Wait for workflow to complete (optional - workflows run asynchronously)
+		// You can also return immediately and check status later
+		return c.json({ 
+			message: 'FAQ creation started',
+			workflowId: workflowInstance.id,
+			status: 'pending'
+		}, 201);
 	} catch (error) {
 		console.error('Error creating FAQ:', error);
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+		const errorStack = error instanceof Error ? error.stack : undefined;
 		return c.json({ 
 			error: 'Failed to create FAQ',
-			details: errorMessage
+			details: errorMessage,
+			...(errorStack && { stack: errorStack })
 		}, 500);
 	}
 });
