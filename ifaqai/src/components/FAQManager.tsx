@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from './ui/label';
 import { Plus, Edit2, Trash2, MessageSquare, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { createFAQEntry, updateFAQEntry, deleteFAQEntry } from '../api/client';
+import { createFAQEntry, updateFAQEntry, deleteFAQEntry, getFAQWorkflowStatus } from '../api/client';
 import type { FAQ } from '../api/types';
 
 interface FAQManagerProps {
@@ -27,6 +27,32 @@ export function FAQManager({ faqs, userId, onUpdate, onRefresh }: FAQManagerProp
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const isBusy = isSubmitting || isEditing || deletingId !== null;
+
+  const waitForWorkflowCompletion = async (workflowId: string): Promise<void> => {
+    const maxAttempts = 10;
+    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const status = await getFAQWorkflowStatus(workflowId).catch(() => null);
+      const state =
+        status?.status ||
+        status?.state ||
+        status?.result?.status ||
+        status?.result?.state;
+
+      if (state === 'completed' || state === 'success' || state === 'succeeded') {
+        return;
+      }
+
+      if (state === 'failed' || state === 'error' || state === 'cancelled') {
+        throw new Error('FAQ creation workflow failed');
+      }
+
+      await delay(1500);
+    }
+
+    throw new Error('FAQ creation is still processing. Please try again shortly.');
+  };
 
   const handleAddFAQ = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +79,10 @@ export function FAQManager({ faqs, userId, onUpdate, onRefresh }: FAQManagerProp
       setIsSubmitting(true);
       // Optimistically update UI
       onUpdate([...faqs, newFAQ]);
-      await createFAQEntry(userId, newFAQ.question, newFAQ.answer);
+      const { workflowId } = await createFAQEntry(userId, newFAQ.question, newFAQ.answer);
+      if (workflowId) {
+        await waitForWorkflowCompletion(workflowId);
+      }
       await onRefresh?.();
       toast.success('FAQ submitted. Vectorization will finish shortly.');
       setQuestion('');
