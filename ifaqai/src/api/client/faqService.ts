@@ -43,3 +43,43 @@ export async function getFAQWorkflowStatus(workflowId: string): Promise<any> {
   return response.json();
 }
 
+export async function updateFAQEntry(
+  faqId: string,
+  userId: string | number,
+  question: string,
+  answer: string
+): Promise<FAQ> {
+  const response = await fetch(`/api/faqs/${faqId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ userId, question, answer }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({ error: response.statusText }));
+    throw new Error(errorBody.error || 'Failed to update FAQ');
+  }
+
+  return response.json() as Promise<FAQ>;
+}
+
+export async function deleteFAQEntry(
+  faqId: string,
+  userId: string | number
+): Promise<void> {
+  const response = await fetch(`/api/faqs/${faqId}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ userId }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({ error: response.statusText }));
+    throw new Error(errorBody.error || 'Failed to delete FAQ');
+  }
+}
+

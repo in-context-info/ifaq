@@ -6,6 +6,7 @@ import { Hono } from 'hono';
 import type { Env } from '../../types/env';
 import { handleAuthEndpoint } from './authHandler';
 import { handleGetCurrentUser, handleCreateUser } from './userService';
+import { handleUpdateFAQ, handleDeleteFAQ } from './faqService';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -83,6 +84,9 @@ app.post('/faqs', async (c) => {
 		}, 500);
 	}
 });
+
+app.put('/faqs/:id', handleUpdateFAQ);
+app.delete('/faqs/:id', handleDeleteFAQ);
 
 export const apiRoutes = app;
 

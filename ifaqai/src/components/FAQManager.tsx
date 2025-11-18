@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from './ui/label';
 import { Plus, Edit2, Trash2, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
-import { createFAQEntry } from '../api/client';
+import { createFAQEntry, updateFAQEntry, deleteFAQEntry } from '../api/client';
 
 interface FAQ {
   question: string;
@@ -27,6 +27,8 @@ export function FAQManager({ faqs, userId, onUpdate }: FAQManagerProps) {
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleAddFAQ = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,7 +69,7 @@ export function FAQManager({ faqs, userId, onUpdate }: FAQManagerProps) {
     }
   };
 
-  const handleEditFAQ = (e: React.FormEvent) => {
+  const handleEditFAQ = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!question.trim() || !answer.trim() || !editingFAQ) {
@@ -75,23 +77,57 @@ export function FAQManager({ faqs, userId, onUpdate }: FAQManagerProps) {
       return;
     }
 
-    const updatedFAQs = faqs.map(faq =>
+    if (!userId && userId !== 0) {
+      toast.error('Missing user ID. Please ensure your profile is saved.');
+      return;
+    }
+
+    const updatedFAQs = faqs.map((faq) =>
       faq.id === editingFAQ.id
         ? { ...faq, question: question.trim(), answer: answer.trim() }
         : faq
     );
 
-    onUpdate(updatedFAQs);
-    setQuestion('');
-    setAnswer('');
-    setEditingFAQ(null);
-    toast.success('FAQ updated successfully');
+    try {
+      setIsEditing(true);
+      onUpdate(updatedFAQs);
+      await updateFAQEntry(editingFAQ.id, userId, question.trim(), answer.trim());
+      toast.success('FAQ updated successfully');
+      setQuestion('');
+      setAnswer('');
+      setEditingFAQ(null);
+    } catch (error) {
+      console.error('Failed to update FAQ:', error);
+      const message = error instanceof Error ? error.message : 'Failed to update FAQ';
+      toast.error(message);
+      // Revert to previous FAQs
+      onUpdate(faqs);
+    } finally {
+      setIsEditing(false);
+    }
   };
 
-  const handleDeleteFAQ = (id: string) => {
-    const updatedFAQs = faqs.filter(faq => faq.id !== id);
-    onUpdate(updatedFAQs);
-    toast.success('FAQ deleted successfully');
+  const handleDeleteFAQ = async (id: string) => {
+    if (!userId && userId !== 0) {
+      toast.error('Missing user ID. Please ensure your profile is saved.');
+      return;
+    }
+
+    const updatedFAQs = faqs.filter((faq) => faq.id !== id);
+
+    try {
+      setDeletingId(id);
+      onUpdate(updatedFAQs);
+      await deleteFAQEntry(id, userId);
+      toast.success('FAQ deleted successfully');
+    } catch (error) {
+      console.error('Failed to delete FAQ:', error);
+      const message = error instanceof Error ? error.message : 'Failed to delete FAQ';
+      toast.error(message);
+      onUpdate(faqs);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const openEditDialog = (faq: FAQ) => {
@@ -270,7 +306,9 @@ export function FAQManager({ faqs, userId, onUpdate }: FAQManagerProps) {
               >
                 Cancel
               </Button>
-              <Button type="submit">Save Changes</Button>
+                    <Button type="submit" disabled={isEditing}>
+                      {isEditing ? 'Saving...' : 'Save Changes'}
+                    </Button>
             </div>
           </form>
         </DialogContent>
