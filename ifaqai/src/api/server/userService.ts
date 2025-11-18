@@ -11,13 +11,18 @@ import type { User, DbUser } from '../types';
  * Convert database user to application user
  */
 function dbUserToUser(dbUser: DbUser): User {
+  // Handle null/undefined values safely
+  const firstName = dbUser.first_name || '';
+  const lastName = dbUser.last_name || '';
+  const fullName = `${firstName} ${lastName}`.trim() || dbUser.email.split('@')[0];
+  
   return {
     userId: dbUser.user_id,
     email: dbUser.email,
-    username: dbUser.user_name,
-    name: `${dbUser.first_name} ${dbUser.last_name}`.trim(),
-    firstName: dbUser.first_name,
-    lastName: dbUser.last_name,
+    username: dbUser.user_name || '',
+    name: fullName,
+    firstName: firstName || undefined,
+    lastName: lastName || undefined,
     bio: dbUser.user_bio || undefined,
     faqs: [], // FAQs will be loaded separately if needed
     createdAt: dbUser.created_at,
@@ -184,6 +189,15 @@ export async function handleGetCurrentUser(
     return c.json({ error: 'Email parameter is required' }, 400);
   }
 
+  // Check if database is available
+  if (!c.env.DB) {
+    console.error('Database binding (DB) is not available');
+    return c.json({ 
+      error: 'Database not configured',
+      details: 'DB binding is missing from environment'
+    }, 500);
+  }
+
   try {
     // Query Users table filtering by email column
     // Access D1 database from Hono context: c.env.DB
@@ -199,7 +213,14 @@ export async function handleGetCurrentUser(
     return c.json(userWithoutPassword);
   } catch (error) {
     console.error('Error fetching user:', error);
-    return c.json({ error: 'Internal server error' }, 500);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    return c.json({ 
+      error: 'Internal server error',
+      details: errorMessage,
+      ...(errorStack && { stack: errorStack })
+    }, 500);
   }
 }
 
@@ -215,6 +236,15 @@ export async function handleCreateUser(
     
     if (!user.email) {
       return c.json({ error: 'Email is required' }, 400);
+    }
+
+    // Check if database is available
+    if (!c.env.DB) {
+      console.error('Database binding (DB) is not available');
+      return c.json({ 
+        error: 'Database not configured',
+        details: 'DB binding is missing from environment'
+      }, 500);
     }
 
     // Check if user already exists by email
@@ -262,7 +292,14 @@ export async function handleCreateUser(
     return c.json(userWithoutPassword, 201);
   } catch (error) {
     console.error('Error creating user:', error);
-    return c.json({ error: 'Internal server error' }, 500);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    return c.json({ 
+      error: 'Internal server error',
+      details: errorMessage,
+      ...(errorStack && { stack: errorStack })
+    }, 500);
   }
 }
 
