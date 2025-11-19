@@ -5,7 +5,7 @@
 import { Hono } from 'hono';
 import type { Env } from '../../types/env';
 import { handleAuthEndpoint } from './authHandler';
-import { handleGetCurrentUser, handleCreateUser } from './userService';
+import { handleGetCurrentUser, handleGetUserByUsername, handleCreateUser } from './userService';
 import { handleGetFAQs, handleUpdateFAQ, handleDeleteFAQ } from './faqService';
 import { handleChatbotQuery } from './chatbotService';
 
@@ -27,6 +27,7 @@ app.get('/auth/me', async (c) => {
 
 // User routes
 app.get('/users/me', handleGetCurrentUser);
+app.get('/users/:username', handleGetUserByUsername);
 
 app.post('/users', handleCreateUser);
 

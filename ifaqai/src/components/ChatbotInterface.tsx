@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { ScrollArea } from './ui/scroll-area';
 import { Bot, Send, ArrowLeft, User as UserIcon } from 'lucide-react';
-import { getUserByUsername } from '../api/client';
+// Removed localStorage import - now using API
 
 interface Message {
   id: string;
@@ -29,32 +29,53 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Load bot owner info
-    const owner = getUserByUsername(username);
+    // Load bot owner info from D1 database
+    const loadBotOwner = async () => {
+      try {
+        const response = await fetch(`/api/users/${encodeURIComponent(username)}`);
+        
+        if (!response.ok) {
+          if (response.status === 404) {
+            setMessages([
+              {
+                id: '1',
+                text: `Sorry, this chatbot doesn't exist. Please check the URL.`,
+                sender: 'bot',
+                timestamp: new Date(),
+              },
+            ]);
+            return;
+          }
+          throw new Error(`Failed to fetch user: ${response.statusText}`);
+        }
+        
+        const owner = await response.json();
+        setBotOwner(owner);
+        setBotName(`${owner.name}'s Bot`);
+        
+        // Add welcome message
+        setMessages([
+          {
+            id: '1',
+            text: `Hi! I'm ${owner.name}'s AI assistant. I'm trained to answer questions based on my knowledge base. Feel free to ask me anything!`,
+            sender: 'bot',
+            timestamp: new Date(),
+          },
+        ]);
+      } catch (error) {
+        console.error('Error loading bot owner:', error);
+        setMessages([
+          {
+            id: '1',
+            text: `Sorry, I'm having trouble loading. Please try again later.`,
+            sender: 'bot',
+            timestamp: new Date(),
+          },
+        ]);
+      }
+    };
     
-    if (owner) {
-      setBotOwner(owner);
-      setBotName(`${owner.name}'s Bot`);
-      
-      // Add welcome message
-      setMessages([
-        {
-          id: '1',
-          text: `Hi! I'm ${owner.name}'s AI assistant. I'm trained to answer questions based on my knowledge base. Feel free to ask me anything!`,
-          sender: 'bot',
-          timestamp: new Date(),
-        },
-      ]);
-    } else {
-      setMessages([
-        {
-          id: '1',
-          text: `Sorry, this chatbot doesn't exist. Please check the URL.`,
-          sender: 'bot',
-          timestamp: new Date(),
-        },
-      ]);
-    }
+    loadBotOwner();
   }, [username]);
 
   useEffect(() => {

@@ -5,6 +5,7 @@
 
 import type { Context } from 'hono';
 import type { Env } from '../../types/env';
+import { getUserByUsername } from './userService';
 
 interface DbFaq {
 	faq_id: number;
@@ -35,24 +36,40 @@ export async function handleChatbotQuery(
 			return c.json({ error: 'Question is required' }, 400);
 		}
 
-		// Get userId from username if provided
+		// Get userId and user profile from username if provided
 		let targetUserId: string | number | null = userId;
+		let userProfile: { name?: string; username?: string; bio?: string } | null = null;
+		
 		if (!targetUserId && username) {
-			const userStmt = c.env.DB.prepare(
-				'SELECT user_id FROM Users WHERE user_name = ?'
-			).bind(username);
-			const user = await userStmt.first<{ user_id: number }>();
+			// Fetch full user profile to get name, bio, etc. for personalization
+			const user = await getUserByUsername(c.env.DB, username, { includeFaqs: false });
 			if (!user) {
 				return c.json({ error: 'User not found' }, 404);
 			}
-			targetUserId = user.user_id;
+			targetUserId = user.userId;
+			userProfile = {
+				name: user.name,
+				username: user.username,
+				bio: user.bio,
+			};
+		} else if (targetUserId && !username) {
+			// If userId is provided but no username, fetch user profile for personalization
+			const userStmt = c.env.DB.prepare('SELECT user_name, first_name, last_name, user_bio FROM Users WHERE user_id = ?').bind(targetUserId);
+			const user = await userStmt.first<{ user_name: string; first_name: string | null; last_name: string | null; user_bio: string | null }>();
+			if (user) {
+				userProfile = {
+					name: [user.first_name, user.last_name].filter(Boolean).join(' ') || user.user_name,
+					username: user.user_name,
+					bio: user.user_bio || undefined,
+				};
+			}
 		}
 
 		if (!targetUserId) {
 			return c.json({ error: 'userId or username is required' }, 400);
 		}
 
-		console.log('Chatbot query:', { question, userId: targetUserId });
+		console.log('Chatbot query:', { question, userId: targetUserId, username: userProfile?.username });
 
 		// Step 1: Convert query to embedding
 		const embeddings = await c.env.AI.run('@cf/baai/bge-base-en-v1.5', {
@@ -111,13 +128,21 @@ export async function handleChatbotQuery(
 					.join('\n\n')}`
 			: '';
 
-		// Step 5: Build system prompt
+		// Step 5: Build personalized system prompt
+		const ownerName = userProfile?.name || 'the owner';
+		const ownerBio = userProfile?.bio;
+		const ownerContext = ownerBio ? `\n\nAbout ${ownerName}: ${ownerBio}` : '';
+		
 		const systemPrompt = faqs.length
-			? `You are a helpful assistant. Use the context provided from the knowledge base to answer the user's question. 
-If the context contains relevant information, use it to provide a detailed and accurate answer. 
-If the context doesn't contain relevant information, politely let the user know that you don't have that information in your knowledge base, but you can try to help with general questions.`
-			: `You are a helpful assistant. The user is asking a question, but there is no relevant information in the knowledge base. 
-Politely let the user know that you don't have specific information about that topic in your knowledge base, but you can try to help with general questions.`;
+			? `You are ${ownerName}'s AI assistant. You are trained to answer questions based on ${ownerName}'s knowledge base.${ownerContext}
+
+Use the context provided from the knowledge base to answer the user's question. 
+If the context contains relevant information, use it to provide a detailed and accurate answer in ${ownerName}'s voice and style.
+If the context doesn't contain relevant information, politely let the user know that you don't have that information in ${ownerName}'s knowledge base, but you can try to help with general questions.`
+			: `You are ${ownerName}'s AI assistant.${ownerContext}
+
+The user is asking a question, but there is no relevant information in ${ownerName}'s knowledge base. 
+Politely let the user know that you don't have specific information about that topic in ${ownerName}'s knowledge base, but you can try to help with general questions.`;
 
 		// Step 6: Call LLM with RAG context
 		const messages: Array<{ role: string; content: string }> = [

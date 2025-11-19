@@ -239,9 +239,68 @@ export async function handleGetCurrentUser(
 ): Promise<Response> {
   // Extract email from query parameter (required for filtering)
   const email = c.req.query('email');
+  const userId = c.req.query('userId');
   
-  if (!email) {
-    return c.json({ error: 'Email parameter is required' }, 400);
+  // Check if database is available
+  if (!c.env.DB) {
+    console.error('Database binding (DB) is not available');
+    return c.json({ 
+      error: 'Database not configured',
+      details: 'DB binding is missing from environment'
+    }, 500);
+  }
+
+  try {
+    let user: User | null = null;
+    
+    // Support both email and userId queries
+    if (email) {
+      user = await getUserByEmail(c.env.DB, email, { includeFaqs: true });
+    } else if (userId) {
+      const stmt = c.env.DB.prepare('SELECT * FROM Users WHERE user_id = ?').bind(userId);
+      const result = await stmt.first<DbUser>();
+      if (result) {
+        user = dbUserToUser(result);
+        if (user.userId !== undefined && user.userId !== null) {
+          user.faqs = await getFAQsByUserId(c.env.DB, user.userId);
+        }
+      }
+    } else {
+      return c.json({ error: 'Email or userId parameter is required' }, 400);
+    }
+    
+    if (!user) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+
+    // Remove password from response if it exists
+    const { password, ...userWithoutPassword } = user;
+    
+    return c.json(userWithoutPassword);
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    return c.json({ 
+      error: 'Internal server error',
+      details: errorMessage,
+      ...(errorStack && { stack: errorStack })
+    }, 500);
+  }
+}
+
+/**
+ * Handle GET /api/users/:username endpoint
+ * Returns user by username (for public chatbot access)
+ */
+export async function handleGetUserByUsername(
+  c: Context<{ Bindings: Env }>
+): Promise<Response> {
+  const username = c.req.param('username');
+  
+  if (!username) {
+    return c.json({ error: 'Username parameter is required' }, 400);
   }
 
   // Check if database is available
@@ -254,9 +313,8 @@ export async function handleGetCurrentUser(
   }
 
   try {
-    // Query Users table filtering by email column
-    // Access D1 database from Hono context: c.env.DB
-    const user = await getUserByEmail(c.env.DB, email, { includeFaqs: true });
+    // Query Users table filtering by username (user_name column)
+    const user = await getUserByUsername(c.env.DB, username, { includeFaqs: true });
     
     if (!user) {
       return c.json({ error: 'User not found' }, 404);
@@ -267,7 +325,7 @@ export async function handleGetCurrentUser(
     
     return c.json(userWithoutPassword);
   } catch (error) {
-    console.error('Error fetching user:', error);
+    console.error('Error fetching user by username:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorStack = error instanceof Error ? error.stack : undefined;
     
