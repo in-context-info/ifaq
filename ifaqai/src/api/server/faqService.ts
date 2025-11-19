@@ -19,6 +19,35 @@ function mapDbFaq(dbFaq: DbFaq): FAQ {
 	};
 }
 
+export async function handleGetFAQs(
+	c: Context<{ Bindings: Env }>
+): Promise<Response> {
+	const userId = c.req.query('userId');
+
+	if (!userId) {
+		return c.json({ error: 'userId is required' }, 400);
+	}
+
+	try {
+		const stmt = c.env.DB.prepare(
+			'SELECT faq_id, user_id, question, answer, created_at, modified_at FROM FAQs WHERE user_id = ? ORDER BY created_at DESC'
+		).bind(userId);
+
+		const { results } = await stmt.all<DbFaq>();
+
+		if (!results) {
+			return c.json([]);
+		}
+
+		const faqs = results.map(mapDbFaq);
+		return c.json(faqs);
+	} catch (error) {
+		console.error('Error fetching FAQs:', error);
+		const message = error instanceof Error ? error.message : 'Unknown error';
+		return c.json({ error: message }, 500);
+	}
+}
+
 async function getFaqById(db: D1Database, faqId: string | number): Promise<DbFaq | null> {
 	const stmt = db
 		.prepare('SELECT faq_id, user_id, question, answer, created_at, modified_at FROM FAQs WHERE faq_id = ?')
