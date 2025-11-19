@@ -193,7 +193,11 @@ function App() {
   }, []);
 
   const handleProfileComplete = async (profile: { username: string; name: string; bio: string }) => {
-    console.log('[PROFILE SETUP] Starting profile completion:', { profile, currentUser: currentUser?.email });
+    console.log('[PROFILE SETUP] Starting profile completion:', { 
+      profile: { ...profile, bio: profile.bio.substring(0, 20) + '...' }, 
+      currentUser: currentUser?.email,
+      currentUserId: currentUser?.userId 
+    });
     
     if (!currentUser?.email) {
       console.error('[PROFILE SETUP] No current user or email found');
@@ -216,21 +220,37 @@ function App() {
         bio: profile.bio,
       };
 
+      console.log('[PROFILE SETUP] User data prepared:', {
+        email: userToUpdate.email,
+        username: userToUpdate.username,
+        name: userToUpdate.name,
+        userId: userToUpdate.userId
+      });
+
       console.log('[PROFILE SETUP] Attempting to create/update user in database...');
       const dbUser = await createUserInDatabase(userToUpdate);
-      console.log('[PROFILE SETUP] Successfully updated user in database:', dbUser);
+      console.log('[PROFILE SETUP] Successfully updated user in database:', {
+        email: dbUser.email,
+        username: dbUser.username,
+        userId: dbUser.userId
+      });
       
       // Refresh user data from database to ensure we have the latest
+      console.log('[PROFILE SETUP] Refreshing user data from database...');
       const refreshedUser = await fetchUserFromDatabase(currentUser.email);
       if (refreshedUser) {
+        console.log('[PROFILE SETUP] User refreshed from database:', refreshedUser.username);
         setCurrentUser(refreshedUser);
       } else {
+        console.log('[PROFILE SETUP] Using returned user from createUserInDatabase');
         setCurrentUser(dbUser);
       }
       
+      console.log('[PROFILE SETUP] Setting needsProfileSetup to false');
       setNeedsProfileSetup(false);
       toast.success('Profile completed successfully!');
     } catch (error) {
+      console.error('[PROFILE SETUP] Error details:', error);
       // Check if it's a username conflict
       if (error instanceof Error && (error.message.includes('already taken') || error.message.includes('Username'))) {
         console.error('[PROFILE SETUP] Username conflict:', error);
@@ -240,6 +260,8 @@ function App() {
       }
       console.error('[PROFILE SETUP] Failed to update profile in database:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      console.error('[PROFILE SETUP] Error stack:', errorStack);
       toast.error(`Failed to update profile: ${errorMessage}`);
     }
   };
