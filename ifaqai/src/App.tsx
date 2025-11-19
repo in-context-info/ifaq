@@ -154,17 +154,42 @@ function App() {
 
     initializeAuth();
 
-    // Check for route-based chatbot access (/<username>)
-    // Only treat as username route if it's alphanumeric/underscore and not a file
-    const path = window.location.pathname;
-    if (path.length > 1 && !path.includes('.')) {
-      const username = path.substring(1).split('/')[0]; // Get first segment
-      // Only valid usernames (alphanumeric and underscore)
-      if (/^[a-z0-9_]+$/.test(username)) {
-        setActiveChatbotUsername(username);
-        setCurrentView('chatbot');
+    // Function to check and handle route-based chatbot access (/<username>)
+    const checkRoute = () => {
+      const path = window.location.pathname;
+      // Only treat as username route if it's alphanumeric/underscore and not a file
+      if (path.length > 1 && !path.includes('.')) {
+        const username = path.substring(1).split('/')[0]; // Get first segment
+        // Only valid usernames (alphanumeric and underscore, case-insensitive)
+        if (/^[a-zA-Z0-9_]+$/.test(username)) {
+          setActiveChatbotUsername(username);
+          setCurrentView('chatbot');
+          return;
+        }
       }
-    }
+      // If not a valid username route and we're on chatbot view, go to home
+      setCurrentView(prev => {
+        if (prev === 'chatbot') {
+          setActiveChatbotUsername('');
+          return 'home';
+        }
+        return prev;
+      });
+    };
+
+    // Check route on mount
+    checkRoute();
+
+    // Listen for route changes (browser back/forward)
+    const handlePopState = () => {
+      checkRoute();
+    };
+    window.addEventListener('popstate', handlePopState);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
   }, []);
 
   const handleProfileComplete = async (profile: { username: string; name: string; bio: string }) => {
