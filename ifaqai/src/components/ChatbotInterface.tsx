@@ -39,6 +39,13 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
   const [isLoading, setIsLoading] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
+
+  // Only allow debug panel if user is the owner
+  useEffect(() => {
+    if (!isOwner && showDebug) {
+      setShowDebug(false);
+    }
+  }, [isOwner, showDebug]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const debugScrollRef = useRef<HTMLDivElement>(null);
 
@@ -124,9 +131,10 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
     setIsLoading(true);
 
     try {
-      // Call RAG-based chatbot API with debug enabled
+      // Call RAG-based chatbot API with debug enabled only if user is owner
+      const debugParam = isOwner ? '&debug=true' : '';
       const response = await fetch(
-        `/api/chatbot?text=${encodeURIComponent(question)}&username=${encodeURIComponent(username)}&debug=true`
+        `/api/chatbot?text=${encodeURIComponent(question)}&username=${encodeURIComponent(username)}${debugParam}`
       );
 
       if (!response.ok) {
@@ -135,8 +143,8 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
 
       const data = await response.json();
       
-      // Store debug information
-      if (data.debug) {
+      // Store debug information (only if user is owner)
+      if (isOwner && data.debug) {
         setDebugInfo({
           vectorizeMatches: data.debug.vectorizeMatches || 0,
           matchingFaqIds: data.debug.matchingFaqIds || [],
@@ -221,15 +229,17 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
                 Your Chatbot
               </div>
             )}
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowDebug(!showDebug)}
-              className="ml-2"
-              title={showDebug ? 'Hide Debug Panel' : 'Show Debug Panel'}
-            >
-              <Bug className="w-4 h-4" />
-            </Button>
+            {isOwner && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setShowDebug(!showDebug)}
+                className="ml-2"
+                title={showDebug ? 'Hide Debug Panel' : 'Show Debug Panel'}
+              >
+                <Bug className="w-4 h-4" />
+              </Button>
+            )}
           </div>
           {botOwner.bio && (
             <p className="text-sm text-gray-600 mt-2">{botOwner.bio}</p>
@@ -314,8 +324,8 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
           </div>
         </Card>
 
-        {/* Debug Panel */}
-        {showDebug && (
+        {/* Debug Panel - Only show if user is the owner */}
+        {isOwner && showDebug && (
           <Card className="w-96 flex flex-col border-2 border-orange-200">
             <CardHeader className="pb-3 border-b">
               <div className="flex items-center justify-between">
