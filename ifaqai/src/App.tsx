@@ -4,7 +4,7 @@ import { Dashboard } from './components/Dashboard';
 import { ChatbotInterface } from './components/ChatbotInterface';
 import { LogoutPage } from './components/LogoutPage';
 import { fetchAuthFromServer, setLoggedInUser, getAuthPayload, logout as logoutUser } from './api/client';
-import { getCurrentUser, updateUserProfile, getUserByUsername, getUserByEmail, fetchUserFromDatabase, createUserInDatabase } from './api/client';
+import { getCurrentUser, getUserByUsername, getUserByEmail, fetchUserFromDatabase, createUserInDatabase } from './api/client';
 import type { User } from './api/types';
 import { toast } from 'sonner';
 
@@ -193,31 +193,54 @@ function App() {
   }, []);
 
   const handleProfileComplete = async (profile: { username: string; name: string; bio: string }) => {
-    if (currentUser?.email) {
-      try {
-        // Update in localStorage first
-        const updatedUser = updateUserProfile(currentUser.email, profile);
-        
-        // Also update in database
-        try {
-          const dbUser = await createUserInDatabase(updatedUser);
-          setCurrentUser(dbUser);
-          setNeedsProfileSetup(false);
-        } catch (error) {
-          // Check if it's a username conflict
-          if (error instanceof Error && error.message.includes('already taken')) {
-            toast.error('Username already taken. Please choose a different username.');
-            // Keep user in profile setup mode
-            return;
-          }
-          console.error('Failed to update profile in database, using localStorage version:', error);
-          setCurrentUser(updatedUser);
-          setNeedsProfileSetup(false);
-        }
-      } catch (error) {
-        console.error('Failed to update profile:', error);
-        toast.error('Failed to update profile. Please try again.');
+    console.log('[PROFILE SETUP] Starting profile completion:', { profile, currentUser: currentUser?.email });
+    
+    if (!currentUser?.email) {
+      console.error('[PROFILE SETUP] No current user or email found');
+      toast.error('User not found. Please refresh the page and try again.');
+      return;
+    }
+
+    try {
+      // Prepare user data for database update
+      const nameParts = profile.name.trim().split(/\s+/);
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+      
+      const userToUpdate: User = {
+        ...currentUser,
+        username: profile.username,
+        name: profile.name,
+        firstName,
+        lastName,
+        bio: profile.bio,
+      };
+
+      console.log('[PROFILE SETUP] Attempting to create/update user in database...');
+      const dbUser = await createUserInDatabase(userToUpdate);
+      console.log('[PROFILE SETUP] Successfully updated user in database:', dbUser);
+      
+      // Refresh user data from database to ensure we have the latest
+      const refreshedUser = await fetchUserFromDatabase(currentUser.email);
+      if (refreshedUser) {
+        setCurrentUser(refreshedUser);
+      } else {
+        setCurrentUser(dbUser);
       }
+      
+      setNeedsProfileSetup(false);
+      toast.success('Profile completed successfully!');
+    } catch (error) {
+      // Check if it's a username conflict
+      if (error instanceof Error && (error.message.includes('already taken') || error.message.includes('Username'))) {
+        console.error('[PROFILE SETUP] Username conflict:', error);
+        toast.error('Username already taken. Please choose a different username.');
+        // Keep user in profile setup mode
+        return;
+      }
+      console.error('[PROFILE SETUP] Failed to update profile in database:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to update profile: ${errorMessage}`);
     }
   };
 

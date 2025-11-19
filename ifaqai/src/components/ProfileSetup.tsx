@@ -6,7 +6,6 @@ import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { User } from 'lucide-react';
 import { toast } from 'sonner';
-import { isUsernameAvailable } from '../api/client';
 
 interface ProfileSetupProps {
   onComplete: (profile: { username: string; name: string; bio: string }) => void;
@@ -17,8 +16,9 @@ export function ProfileSetup({ onComplete, initialEmail }: ProfileSetupProps) {
   const [username, setUsername] = useState('');
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate username
@@ -27,13 +27,40 @@ export function ProfileSetup({ onComplete, initialEmail }: ProfileSetupProps) {
       return;
     }
 
-    // Check if username is available
-    if (!isUsernameAvailable(username, initialEmail)) {
-      toast.error('Username already taken');
+    // Validate name
+    if (!name.trim()) {
+      toast.error('Full name is required');
       return;
     }
 
-    onComplete({ username, name, bio });
+    // Check if username is available in database
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/users/${encodeURIComponent(username)}`);
+      if (response.ok) {
+        // Username exists in database - check if it's the same user
+        const existingUser = await response.json();
+        if (existingUser.email !== initialEmail) {
+          toast.error('Username already taken. Please choose a different username.');
+          setIsSubmitting(false);
+          return;
+        }
+        // Same user - allow them to keep their username
+      } else if (response.status !== 404) {
+        // Some other error occurred
+        console.error('Error checking username availability:', response.statusText);
+        toast.error('Error checking username availability. Please try again.');
+        setIsSubmitting(false);
+        return;
+      }
+      // If 404, username is available - proceed
+      
+      onComplete({ username, name, bio });
+    } catch (error) {
+      console.error('Error checking username:', error);
+      toast.error('Error checking username. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -88,8 +115,8 @@ export function ProfileSetup({ onComplete, initialEmail }: ProfileSetupProps) {
               />
             </div>
 
-            <Button type="submit" className="w-full">
-              Complete Setup
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? 'Processing...' : 'Complete Setup'}
             </Button>
           </form>
         </CardContent>

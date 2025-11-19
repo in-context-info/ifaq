@@ -171,7 +171,7 @@ export function isUsernameAvailable(username: string, excludeEmail?: string): bo
 }
 
 // Helper functions
-function saveUsers(users: User[]): void {
+export function saveUsers(users: User[]): void {
   localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
 }
 
