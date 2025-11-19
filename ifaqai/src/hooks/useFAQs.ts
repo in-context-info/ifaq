@@ -221,20 +221,18 @@ export function useFAQs(userId: string | number | undefined) {
       if (context?.previous) {
         queryClient.setQueryData(['faqs', userId], context.previous);
       }
+      setWorkflowStep(null);
       toast.error('Failed to create FAQ');
     },
     onSuccess: () => {
       setWorkflowStep(null);
       toast.success('FAQ created successfully');
     },
-    onError: () => {
-      setWorkflowStep(null);
-    },
     onSettled: () => {
       // Always refetch after error or success to get real data
       queryClient.invalidateQueries({ queryKey: ['faqs', userId] });
-      // Clear step status after a delay
-      setTimeout(() => setWorkflowStep(null), 1000);
+      // Clear step status immediately when settled
+      setWorkflowStep(null);
     },
   });
 
