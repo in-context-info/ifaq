@@ -6,163 +6,85 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Label } from './ui/label';
 import { Plus, Edit2, Trash2, MessageSquare, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { createFAQEntry, updateFAQEntry, deleteFAQEntry, getFAQWorkflowStatus } from '../api/client';
+import { useFAQs } from '../hooks/useFAQs';
 import type { FAQ } from '../api/types';
 
 interface FAQManagerProps {
-  faqs: FAQ[];
   userId?: string | number;
-  onUpdate: (faqs: FAQ[]) => void;
-  onRefresh?: () => Promise<void> | void;
 }
 
-export function FAQManager({ faqs, userId, onUpdate, onRefresh }: FAQManagerProps) {
+export function FAQManager({ userId }: FAQManagerProps) {
+  const {
+    faqs,
+    isLoading,
+    createFAQ,
+    updateFAQ,
+    deleteFAQ,
+    isCreating,
+    isUpdating,
+    isDeleting,
+    deletingId,
+  } = useFAQs(userId);
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingFAQ, setEditingFAQ] = useState<FAQ | null>(null);
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const isBusy = isSubmitting || isEditing || deletingId !== null;
+  const isBusy = isCreating || isUpdating || isDeleting;
 
-  const waitForWorkflowCompletion = async (workflowId: string): Promise<void> => {
-    const maxAttempts = 10;
-    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const status = await getFAQWorkflowStatus(workflowId).catch(() => null);
-      const state =
-        status?.status ||
-        status?.state ||
-        status?.result?.status ||
-        status?.result?.state;
-
-      if (state === 'completed' || state === 'success' || state === 'succeeded') {
-        return;
-      }
-
-      if (state === 'failed' || state === 'error' || state === 'cancelled') {
-        throw new Error('FAQ creation workflow failed');
-      }
-
-      await delay(1500);
-    }
-
-    throw new Error('FAQ creation is still processing. Please try again shortly.');
-  };
-
-  const handleAddFAQ = async (e: React.FormEvent) => {
+  const handleAddFAQ = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!question.trim() || !answer.trim()) {
-      toast.error('Please fill in both question and answer');
       return;
     }
 
     if (!userId && userId !== 0) {
-      toast.error('Missing user ID. Please ensure your profile is saved.');
       return;
     }
 
-    const newFAQ: FAQ = {
-      id: Date.now().toString(),
-      question: question.trim(),
-      answer: answer.trim(),
-    };
-
-    const previousFaqs = [...faqs];
-
-    try {
-      setIsSubmitting(true);
-      // Optimistically update UI
-      onUpdate([...faqs, newFAQ]);
-      const { workflowId } = await createFAQEntry(userId, newFAQ.question, newFAQ.answer);
-      if (workflowId) {
-        await waitForWorkflowCompletion(workflowId);
+    createFAQ(
+      { question: question.trim(), answer: answer.trim() },
+      {
+        onSuccess: () => {
+          setQuestion('');
+          setAnswer('');
+          setIsAddDialogOpen(false);
+        },
       }
-      await onRefresh?.();
-      toast.success('FAQ submitted. Vectorization will finish shortly.');
-      setQuestion('');
-      setAnswer('');
-      setIsAddDialogOpen(false);
-    } catch (error) {
-      console.error('Failed to create FAQ:', error);
-      const message = error instanceof Error ? error.message : 'Failed to create FAQ';
-      toast.error(message);
-      // Revert optimistic update
-      onUpdate([...previousFaqs]);
-    } finally {
-      setIsSubmitting(false);
-    }
+    );
   };
 
-  const handleEditFAQ = async (e: React.FormEvent) => {
+  const handleEditFAQ = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!question.trim() || !answer.trim() || !editingFAQ) {
-      toast.error('Please fill in both question and answer');
       return;
     }
 
     if (!userId && userId !== 0) {
-      toast.error('Missing user ID. Please ensure your profile is saved.');
       return;
     }
 
-    const updatedFAQs = faqs.map((faq) =>
-      faq.id === editingFAQ.id
-        ? { ...faq, question: question.trim(), answer: answer.trim() }
-        : faq
+    updateFAQ(
+      { id: editingFAQ.id, question: question.trim(), answer: answer.trim() },
+      {
+        onSuccess: () => {
+          setQuestion('');
+          setAnswer('');
+          setEditingFAQ(null);
+        },
+      }
     );
-
-    const previousFaqs = [...faqs];
-
-    try {
-      setIsEditing(true);
-      onUpdate(updatedFAQs);
-      await updateFAQEntry(editingFAQ.id, userId, question.trim(), answer.trim());
-      await onRefresh?.();
-      toast.success('FAQ updated successfully');
-      setQuestion('');
-      setAnswer('');
-      setEditingFAQ(null);
-    } catch (error) {
-      console.error('Failed to update FAQ:', error);
-      const message = error instanceof Error ? error.message : 'Failed to update FAQ';
-      toast.error(message);
-      // Revert to previous FAQs
-      onUpdate([...previousFaqs]);
-    } finally {
-      setIsEditing(false);
-    }
   };
 
-  const handleDeleteFAQ = async (id: string) => {
+  const handleDeleteFAQ = (id: string) => {
     if (!userId && userId !== 0) {
-      toast.error('Missing user ID. Please ensure your profile is saved.');
       return;
     }
 
-    const updatedFAQs = faqs.filter((faq) => faq.id !== id);
-    const previousFaqs = [...faqs];
-
-    try {
-      setDeletingId(id);
-      onUpdate(updatedFAQs);
-      await deleteFAQEntry(id, userId);
-      await onRefresh?.();
-      toast.success('FAQ deleted successfully');
-    } catch (error) {
-      console.error('Failed to delete FAQ:', error);
-      const message = error instanceof Error ? error.message : 'Failed to delete FAQ';
-      toast.error(message);
-      onUpdate([...previousFaqs]);
-    } finally {
-      setDeletingId(null);
-    }
+    deleteFAQ(id);
   };
 
   const openEditDialog = (faq: FAQ) => {
@@ -176,6 +98,17 @@ export function FAQManager({ faqs, userId, onUpdate, onRefresh }: FAQManagerProp
     setQuestion('');
     setAnswer('');
   };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <Loader2 className="w-8 h-8 text-gray-400 mx-auto mb-4 animate-spin" />
+          <p className="text-gray-600">Loading FAQs...</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -212,6 +145,7 @@ export function FAQManager({ faqs, userId, onUpdate, onRefresh }: FAQManagerProp
                       value={question}
                       onChange={(e) => setQuestion(e.target.value)}
                       required
+                      disabled={isCreating}
                     />
                   </div>
                   <div className="space-y-2">
@@ -223,6 +157,7 @@ export function FAQManager({ faqs, userId, onUpdate, onRefresh }: FAQManagerProp
                       onChange={(e) => setAnswer(e.target.value)}
                       rows={5}
                       required
+                      disabled={isCreating}
                     />
                   </div>
                   <div className="flex gap-2 justify-end">
@@ -234,11 +169,19 @@ export function FAQManager({ faqs, userId, onUpdate, onRefresh }: FAQManagerProp
                         setQuestion('');
                         setAnswer('');
                       }}
+                      disabled={isCreating}
                     >
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={isSubmitting}>
-                      {isSubmitting ? 'Creating...' : 'Add FAQ'}
+                    <Button type="submit" disabled={isCreating}>
+                      {isCreating ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        'Add FAQ'
+                      )}
                     </Button>
                   </div>
                 </form>
@@ -291,7 +234,7 @@ export function FAQManager({ faqs, userId, onUpdate, onRefresh }: FAQManagerProp
                       variant="outline"
                       size="sm"
                       onClick={() => handleDeleteFAQ(faq.id)}
-                      disabled={deletingId === faq.id}
+                      disabled={isBusy || deletingId === faq.id}
                     >
                       {deletingId === faq.id ? (
                         <>
@@ -314,7 +257,7 @@ export function FAQManager({ faqs, userId, onUpdate, onRefresh }: FAQManagerProp
       )}
 
       {/* Edit Dialog */}
-      <Dialog open={!!editingFAQ} onOpenChange={(open) => !open && closeEditDialog()}>
+      <Dialog open={!!editingFAQ} onOpenChange={(open) => !open && !isBusy && closeEditDialog()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit FAQ</DialogTitle>
@@ -331,6 +274,7 @@ export function FAQManager({ faqs, userId, onUpdate, onRefresh }: FAQManagerProp
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 required
+                disabled={isUpdating}
               />
             </div>
             <div className="space-y-2">
@@ -342,6 +286,7 @@ export function FAQManager({ faqs, userId, onUpdate, onRefresh }: FAQManagerProp
                 onChange={(e) => setAnswer(e.target.value)}
                 rows={5}
                 required
+                disabled={isUpdating}
               />
             </div>
             <div className="flex gap-2 justify-end">
@@ -349,12 +294,20 @@ export function FAQManager({ faqs, userId, onUpdate, onRefresh }: FAQManagerProp
                 type="button"
                 variant="outline"
                 onClick={closeEditDialog}
+                disabled={isUpdating}
               >
                 Cancel
               </Button>
-                    <Button type="submit" disabled={isEditing}>
-                      {isEditing ? 'Saving...' : 'Save Changes'}
-                    </Button>
+              <Button type="submit" disabled={isUpdating}>
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </Button>
             </div>
           </form>
         </DialogContent>

@@ -6,7 +6,7 @@ import { Hono } from 'hono';
 import type { Env } from '../../types/env';
 import { handleAuthEndpoint } from './authHandler';
 import { handleGetCurrentUser, handleCreateUser } from './userService';
-import { handleUpdateFAQ, handleDeleteFAQ } from './faqService';
+import { handleGetFAQs, handleUpdateFAQ, handleDeleteFAQ } from './faqService';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -30,6 +30,8 @@ app.get('/users/me', handleGetCurrentUser);
 app.post('/users', handleCreateUser);
 
 // FAQ routes
+app.get('/faqs', handleGetFAQs);
+
 app.get('/faqs/:workflowId', async (c) => {
 	const workflowId = c.req.param('workflowId');
 	try {

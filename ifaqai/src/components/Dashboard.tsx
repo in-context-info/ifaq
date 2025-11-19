@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
@@ -6,8 +6,8 @@ import { Avatar, AvatarFallback } from './ui/avatar';
 import { Badge } from './ui/badge';
 import { FAQManager } from './FAQManager';
 import { Bot, LogOut, ExternalLink, User as UserIcon } from 'lucide-react';
-import { fetchUserFromDatabase } from '../api/client';
-import type { User, FAQ } from '../api/types';
+import { useFAQs } from '../hooks/useFAQs';
+import type { User } from '../api/types';
 
 interface DashboardProps {
   user: User;
@@ -17,20 +17,11 @@ interface DashboardProps {
 }
 
 export function Dashboard({ user, onLogout, onNavigateToChatbot, onUpdateUser }: DashboardProps) {
-  const handleFAQsUpdate = (faqs: FAQ[]) => {
-    onUpdateUser({ ...user, faqs });
-  };
-
-  const refreshUserFromServer = async () => {
-    try {
-      const freshUser = await fetchUserFromDatabase(user.email);
-      if (freshUser) {
-        onUpdateUser(freshUser);
-      }
-    } catch (error) {
-      console.error('Failed to refresh user from server:', error);
-    }
-  };
+  // Use React Query to manage FAQs - this automatically syncs with the server
+  const { faqs } = useFAQs(user.userId);
+  
+  // Update user object with current FAQs count for display
+  const faqCount = faqs.length;
 
   const chatbotUrl = `${window.location.origin}/${user.username}`;
 
@@ -76,7 +67,7 @@ export function Dashboard({ user, onLogout, onNavigateToChatbot, onUpdateUser }:
               </div>
               <Badge variant="secondary" className="flex items-center gap-1">
                 <Bot className="w-3 h-3" />
-                {user.faqs.length} FAQ{user.faqs.length !== 1 ? 's' : ''}
+                {faqCount} FAQ{faqCount !== 1 ? 's' : ''}
               </Badge>
             </div>
           </CardHeader>
@@ -108,12 +99,7 @@ export function Dashboard({ user, onLogout, onNavigateToChatbot, onUpdateUser }:
           </TabsList>
 
           <TabsContent value="faqs" className="mt-6">
-            <FAQManager
-              faqs={user.faqs}
-              userId={user.userId}
-              onUpdate={handleFAQsUpdate}
-              onRefresh={refreshUserFromServer}
-            />
+            <FAQManager userId={user.userId} />
           </TabsContent>
 
           <TabsContent value="profile" className="mt-6">
