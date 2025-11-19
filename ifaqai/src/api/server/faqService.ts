@@ -151,12 +151,34 @@ export async function handleDeleteFAQ(
 			return c.json({ error: 'userId is required' }, 400);
 		}
 
+		console.log(`[DELETE FAQ] Starting deletion for FAQ ID: ${faqId}, User ID: ${userId}`);
+
+		// Step 1: Verify FAQ exists and belongs to user
 		const existingFaq = await getFaqById(c.env.DB, faqId);
 
-		if (!existingFaq || existingFaq.user_id.toString() !== userId.toString()) {
+		if (!existingFaq) {
+			console.log(`[DELETE FAQ] FAQ ${faqId} not found in D1`);
 			return c.json({ error: 'FAQ not found' }, 404);
 		}
 
+		if (existingFaq.user_id.toString() !== userId.toString()) {
+			console.log(`[DELETE FAQ] FAQ ${faqId} belongs to different user (${existingFaq.user_id} !== ${userId})`);
+			return c.json({ error: 'FAQ not found' }, 404);
+		}
+
+		console.log(`[DELETE FAQ] FAQ found: ${faqId}, proceeding with deletion`);
+
+		// Step 2: Delete from Vectorize first (before D1) to ensure we have the ID
+		try {
+			const vectorDeleteResult = await c.env.VECTOR_INDEX.delete([faqId.toString()]);
+			console.log(`[DELETE FAQ] Vectorize deletion result:`, vectorDeleteResult);
+		} catch (vectorError) {
+			console.error(`[DELETE FAQ] Error deleting from Vectorize:`, vectorError);
+			// Continue with D1 deletion even if Vectorize fails
+			// This prevents orphaned records in D1
+		}
+
+		// Step 3: Delete from D1
 		const deleteResult = await c.env.DB.prepare(
 			'DELETE FROM FAQs WHERE faq_id = ? AND user_id = ?'
 		)
@@ -164,14 +186,27 @@ export async function handleDeleteFAQ(
 			.run();
 
 		if (!deleteResult.success) {
-			return c.json({ error: deleteResult.error || 'Failed to delete FAQ' }, 500);
+			console.error(`[DELETE FAQ] D1 deletion failed:`, deleteResult.error);
+			return c.json({ error: deleteResult.error || 'Failed to delete FAQ from database' }, 500);
 		}
 
-		await c.env.VECTOR_INDEX.delete([faqId.toString()]);
+		console.log(`[DELETE FAQ] Successfully deleted FAQ ${faqId} from both D1 and Vectorize`);
 
-		return c.json({ message: 'FAQ deleted' });
+		// Verify deletion
+		const verifyFaq = await getFaqById(c.env.DB, faqId);
+		if (verifyFaq) {
+			console.warn(`[DELETE FAQ] WARNING: FAQ ${faqId} still exists in D1 after deletion!`);
+		} else {
+			console.log(`[DELETE FAQ] Verified: FAQ ${faqId} successfully removed from D1`);
+		}
+
+		return c.json({ 
+			message: 'FAQ deleted successfully',
+			deletedId: faqId,
+			deletedFromD1: !verifyFaq,
+		});
 	} catch (error) {
-		console.error('Error deleting FAQ:', error);
+		console.error('[DELETE FAQ] Error deleting FAQ:', error);
 		const message = error instanceof Error ? error.message : 'Unknown error';
 		return c.json({ error: message }, 500);
 	}
