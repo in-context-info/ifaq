@@ -64,44 +64,6 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
     }
   }, [messages]);
 
-  const findBestAnswer = (question: string): string | null => {
-    if (!botOwner || !botOwner.faqs || botOwner.faqs.length === 0) {
-      return null;
-    }
-
-    const questionLower = question.toLowerCase();
-    
-    // Try to find exact or partial match
-    let bestMatch = null;
-    let highestScore = 0;
-
-    for (const faq of botOwner.faqs) {
-      const faqQuestionLower = faq.question.toLowerCase();
-      
-      // Exact match
-      if (faqQuestionLower === questionLower) {
-        return faq.answer;
-      }
-
-      // Calculate similarity score
-      const words = questionLower.split(' ').filter(w => w.length > 2);
-      let score = 0;
-      
-      for (const word of words) {
-        if (faqQuestionLower.includes(word) || faq.answer.toLowerCase().includes(word)) {
-          score++;
-        }
-      }
-
-      if (score > highestScore && score > 0) {
-        highestScore = score;
-        bestMatch = faq.answer;
-      }
-    }
-
-    return bestMatch;
-  };
-
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -115,24 +77,45 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const question = inputValue.trim();
     setInputValue('');
     setIsLoading(true);
 
-    // Simulate thinking delay
-    setTimeout(() => {
-      const answer = findBestAnswer(userMessage.text);
+    try {
+      // Call RAG-based chatbot API
+      const response = await fetch(
+        `/api/chatbot?text=${encodeURIComponent(question)}&username=${encodeURIComponent(username)}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
       
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: answer || 
+        text: data.answer || 
           "I don't have specific information about that in my knowledge base. Could you try rephrasing your question or ask about something else?",
         sender: 'bot',
         timestamp: new Date(),
       };
 
       setMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      console.error('Error calling chatbot API:', error);
+      
+      const botMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: "Sorry, I'm having trouble processing your question right now. Please try again later.",
+        sender: 'bot',
+        timestamp: new Date(),
+      };
+
+      setMessages(prev => [...prev, botMessage]);
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   if (!botOwner) {

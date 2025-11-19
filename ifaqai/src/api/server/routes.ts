@@ -7,6 +7,7 @@ import type { Env } from '../../types/env';
 import { handleAuthEndpoint } from './authHandler';
 import { handleGetCurrentUser, handleCreateUser } from './userService';
 import { handleGetFAQs, handleUpdateFAQ, handleDeleteFAQ } from './faqService';
+import { handleChatbotQuery } from './chatbotService';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -89,6 +90,9 @@ app.post('/faqs', async (c) => {
 
 app.put('/faqs/:id', handleUpdateFAQ);
 app.delete('/faqs/:id', handleDeleteFAQ);
+
+// Chatbot route - RAG-based query using Vectorize and LLM
+app.get('/chatbot', handleChatbotQuery);
 
 export const apiRoutes = app;
 
