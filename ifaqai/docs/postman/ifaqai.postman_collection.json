@@ -7,126 +7,394 @@
   },
   "item": [
     {
-      "name": "Get Current User",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/api/users/me?email={{email}}",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "users",
-            "me"
-          ],
-          "query": [
-            {
-              "key": "email",
-              "value": "{{email}}"
-            }
-          ]
-        },
-        "description": "Fetch a user by email from D1."
-      },
-      "response": []
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Get Current Auth User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Get the current authenticated user from Cloudflare Access."
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "name": "Create or Update User",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"{{email}}\",\n  \"username\": \"user_name\",\n  \"name\": \"User Name\",\n  \"bio\": \"Short bio\"\n}"
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me?email={{email}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me"
+              ],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "{{email}}",
+                  "description": "User email address"
+                }
+              ]
+            },
+            "description": "Fetch a user by email from D1."
+          },
+          "response": []
         },
-        "url": {
-          "raw": "{{baseUrl}}/api/users",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "users"
-          ]
+        {
+          "name": "Get User by Username",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{username}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{username}}"
+              ]
+            },
+            "description": "Fetch a user by username from D1. Returns user profile with FAQs."
+          },
+          "response": []
         },
-        "description": "Upsert a user into D1."
-      },
-      "response": []
+        {
+          "name": "Create or Update User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"username\": \"user_name\",\n  \"name\": \"User Name\",\n  \"bio\": \"Short bio\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "Upsert a user into D1."
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "name": "Create FAQ (start workflow)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"userId\": {{userId}},\n  \"question\": \"How do I reset my password?\",\n  \"answer\": \"Go to Settings → Security and click Reset Password.\"\n}"
+      "name": "FAQs",
+      "item": [
+        {
+          "name": "Get FAQs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/faqs?userId={{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "faqs"
+              ],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "{{userId}}",
+                  "description": "User ID to fetch FAQs for"
+                }
+              ]
+            },
+            "description": "Fetch all FAQs for a specific user from D1."
+          },
+          "response": []
         },
-        "url": {
-          "raw": "{{baseUrl}}/api/faqs",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "faqs"
-          ]
+        {
+          "name": "Create FAQ (start workflow)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": {{userId}},\n  \"question\": \"How do I reset my password?\",\n  \"answer\": \"Go to Settings → Security and click Reset Password.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/faqs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "faqs"
+              ]
+            },
+            "description": "Starts the FAQ workflow that writes to D1 and Vectorize. Returns a workflowId to check status."
+          },
+          "response": []
         },
-        "description": "Starts the FAQ workflow that writes to D1 and Vectorize."
-      },
-      "response": []
+        {
+          "name": "Get FAQ Workflow Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/faqs/{{workflowId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "faqs",
+                "{{workflowId}}"
+              ]
+            },
+            "description": "Check workflow status (pending, completed, failed). Set `workflowId` variable from the Create FAQ response."
+          },
+          "response": []
+        },
+        {
+          "name": "Update FAQ",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": {{userId}},\n  \"question\": \"Updated question?\",\n  \"answer\": \"Updated answer.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/faqs/{{faqId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "faqs",
+                "{{faqId}}"
+              ]
+            },
+            "description": "Update an existing FAQ. Updates both D1 and regenerates embedding in Vectorize."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete FAQ",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": {{userId}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/faqs/{{faqId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "faqs",
+                "{{faqId}}"
+              ]
+            },
+            "description": "Delete an FAQ. Removes from both D1 and Vectorize."
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "name": "Get FAQ Workflow Status",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/api/faqs/{{workflowId}}",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "faqs",
-            "{{workflowId}}"
-          ]
+      "name": "Chatbot",
+      "item": [
+        {
+          "name": "Query Chatbot (by username)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/chatbot?text={{question}}&username={{username}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "chatbot"
+              ],
+              "query": [
+                {
+                  "key": "text",
+                  "value": "{{question}}",
+                  "description": "User question to ask the chatbot"
+                },
+                {
+                  "key": "username",
+                  "value": "{{username}}",
+                  "description": "Username of the chatbot owner"
+                }
+              ]
+            },
+            "description": "Query the chatbot using RAG (Retrieval-Augmented Generation). Uses Vectorize to find relevant FAQs and LLM to generate response. Requires either `username` or `userId` parameter."
+          },
+          "response": []
         },
-        "description": "Check workflow status (pending, completed, failed). Set `workflowId` variable from the Create FAQ response."
-      },
-      "response": []
+        {
+          "name": "Query Chatbot (by userId)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/chatbot?text={{question}}&userId={{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "chatbot"
+              ],
+              "query": [
+                {
+                  "key": "text",
+                  "value": "{{question}}",
+                  "description": "User question to ask the chatbot"
+                },
+                {
+                  "key": "userId",
+                  "value": "{{userId}}",
+                  "description": "User ID of the chatbot owner"
+                }
+              ]
+            },
+            "description": "Query the chatbot using RAG (Retrieval-Augmented Generation). Uses Vectorize to find relevant FAQs and LLM to generate response. Requires either `username` or `userId` parameter."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Test Routes",
+      "item": [
+        {
+          "name": "Hello Message",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/message",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "message"
+              ]
+            },
+            "description": "Simple test endpoint that returns 'Hello from ifaqai!'"
+          },
+          "response": []
+        },
+        {
+          "name": "Random UUID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/random",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "random"
+              ]
+            },
+            "description": "Simple test endpoint that returns a random UUID"
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "event": [],
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://127.0.0.1:8787"
+      "value": "http://127.0.0.1:8787",
+      "type": "string"
     },
     {
       "key": "email",
-      "value": "user@example.com"
+      "value": "user@example.com",
+      "type": "string"
     },
     {
       "key": "userId",
-      "value": "1"
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "username",
+      "value": "username",
+      "type": "string"
     },
     {
       "key": "workflowId",
-      "value": ""
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "faqId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "question",
+      "value": "How do I reset my password?",
+      "type": "string"
     }
   ]
 }
-
