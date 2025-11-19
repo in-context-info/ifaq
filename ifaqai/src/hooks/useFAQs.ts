@@ -16,38 +16,66 @@ import { toast } from 'sonner';
 
 /**
  * Wait for workflow to complete
+ * First waits 1 second for workflow to start, then polls status
  */
-async function waitForWorkflowCompletion(workflowId: string, maxAttempts = 20): Promise<void> {
+async function waitForWorkflowCompletion(workflowId: string, maxAttempts = 30): Promise<void> {
   const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+  // Wait 1 second first to give the workflow time to start
+  await delay(1000);
+
+  // Now poll for completion
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       const status = await getFAQWorkflowStatus(workflowId);
+      
+      // Check various possible status locations in the response
       const state =
         status?.status ||
         status?.state ||
+        status?.current?.status ||
         status?.result?.status ||
-        status?.result?.state;
+        status?.result?.state ||
+        status?.output?.status;
 
-      if (state === 'completed' || state === 'success' || state === 'succeeded') {
+      // Check for completion states
+      if (state === 'completed' || state === 'success' || state === 'succeeded' || state === 'done') {
+        console.log('Workflow completed successfully');
         return;
       }
 
-      if (state === 'failed' || state === 'error' || state === 'cancelled') {
-        throw new Error('FAQ workflow failed');
+      // Check for failure states
+      if (state === 'failed' || state === 'error' || state === 'cancelled' || state === 'rejected') {
+        throw new Error(`FAQ workflow failed with state: ${state}`);
       }
 
+      // If status is pending/running, continue polling
+      console.log(`Workflow status: ${state || 'unknown'}, attempt ${attempt + 1}/${maxAttempts}`);
+      
       // Wait before next attempt
       await delay(1000);
     } catch (error) {
-      if (attempt === maxAttempts - 1) {
-        throw error;
+      // If it's a 404, workflow might not be found yet (still starting)
+      if (error instanceof Error && error.message.includes('404') && attempt < 5) {
+        console.log('Workflow not found yet, waiting...');
+        await delay(1000);
+        continue;
       }
+      
+      // If we can't get status after several attempts, log but don't fail
+      // The FAQ is already in the DB, so we'll let refetch handle it
+      if (attempt === maxAttempts - 1) {
+        console.warn('Could not verify workflow status after all attempts, but FAQ may already be created:', error);
+        return; // Don't throw - let the refetch handle it
+      }
+      
+      // For other errors, wait and retry
       await delay(1000);
     }
   }
 
-  throw new Error('Workflow timeout');
+  // Timeout - but don't fail the mutation since FAQ is in DB
+  console.warn(`Workflow status check timeout after ${maxAttempts} attempts, but FAQ may already be created`);
 }
 
 export function useFAQs(userId: string | number | undefined) {
@@ -74,7 +102,7 @@ export function useFAQs(userId: string | number | undefined) {
       
       const response = await createFAQEntry(userId, question, answer);
       
-      // Wait for workflow to complete
+      // Wait for workflow to complete (waits 1 second first, then polls)
       if (response.workflowId) {
         await waitForWorkflowCompletion(response.workflowId);
       }
