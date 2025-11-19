@@ -4,14 +4,25 @@ import { Input } from './ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { ScrollArea } from './ui/scroll-area';
-import { Bot, Send, ArrowLeft, User as UserIcon } from 'lucide-react';
-import { getUserByUsername } from '../api/client';
+import { Bot, Send, ArrowLeft, User as UserIcon, Bug, X } from 'lucide-react';
+// Removed localStorage import - now using API
 
 interface Message {
   id: string;
   text: string;
   sender: 'user' | 'bot';
   timestamp: Date;
+  debugInfo?: any;
+}
+
+interface DebugInfo {
+  vectorizeMatches: number;
+  matchingFaqIds: string[];
+  faqsRetrieved: number;
+  chatbotOwnerId: string;
+  chatbotOwnerUsername?: string;
+  contextUsed: boolean;
+  faqsUsed: number;
 }
 
 interface ChatbotInterfaceProps {
@@ -26,35 +37,66 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
   const [botName, setBotName] = useState('');
   const [botOwner, setBotOwner] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
+
+  // Only allow debug panel if user is the owner
+  useEffect(() => {
+    if (!isOwner && showDebug) {
+      setShowDebug(false);
+    }
+  }, [isOwner, showDebug]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const debugScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Load bot owner info
-    const owner = getUserByUsername(username);
+    // Load bot owner info from D1 database
+    const loadBotOwner = async () => {
+      try {
+        const response = await fetch(`/api/users/${encodeURIComponent(username)}`);
+        
+        if (!response.ok) {
+          if (response.status === 404) {
+            setMessages([
+              {
+                id: '1',
+                text: `Sorry, this chatbot doesn't exist. Please check the URL.`,
+                sender: 'bot',
+                timestamp: new Date(),
+              },
+            ]);
+            return;
+          }
+          throw new Error(`Failed to fetch user: ${response.statusText}`);
+        }
+        
+        const owner = await response.json();
+        setBotOwner(owner);
+        setBotName(`${owner.name}'s Bot`);
+        
+        // Add welcome message
+        setMessages([
+          {
+            id: '1',
+            text: `Hi! I'm ${owner.name}'s AI assistant. I'm trained to answer questions based on my knowledge base. Feel free to ask me anything!`,
+            sender: 'bot',
+            timestamp: new Date(),
+          },
+        ]);
+      } catch (error) {
+        console.error('Error loading bot owner:', error);
+        setMessages([
+          {
+            id: '1',
+            text: `Sorry, I'm having trouble loading. Please try again later.`,
+            sender: 'bot',
+            timestamp: new Date(),
+          },
+        ]);
+      }
+    };
     
-    if (owner) {
-      setBotOwner(owner);
-      setBotName(`${owner.name}'s Bot`);
-      
-      // Add welcome message
-      setMessages([
-        {
-          id: '1',
-          text: `Hi! I'm ${owner.name}'s AI assistant. I'm trained to answer questions based on my knowledge base. Feel free to ask me anything!`,
-          sender: 'bot',
-          timestamp: new Date(),
-        },
-      ]);
-    } else {
-      setMessages([
-        {
-          id: '1',
-          text: `Sorry, this chatbot doesn't exist. Please check the URL.`,
-          sender: 'bot',
-          timestamp: new Date(),
-        },
-      ]);
-    }
+    loadBotOwner();
   }, [username]);
 
   useEffect(() => {
@@ -64,43 +106,12 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
     }
   }, [messages]);
 
-  const findBestAnswer = (question: string): string | null => {
-    if (!botOwner || !botOwner.faqs || botOwner.faqs.length === 0) {
-      return null;
+  useEffect(() => {
+    // Scroll debug panel to top when new debug info arrives
+    if (debugScrollRef.current && debugInfo) {
+      debugScrollRef.current.scrollTop = 0;
     }
-
-    const questionLower = question.toLowerCase();
-    
-    // Try to find exact or partial match
-    let bestMatch = null;
-    let highestScore = 0;
-
-    for (const faq of botOwner.faqs) {
-      const faqQuestionLower = faq.question.toLowerCase();
-      
-      // Exact match
-      if (faqQuestionLower === questionLower) {
-        return faq.answer;
-      }
-
-      // Calculate similarity score
-      const words = questionLower.split(' ').filter(w => w.length > 2);
-      let score = 0;
-      
-      for (const word of words) {
-        if (faqQuestionLower.includes(word) || faq.answer.toLowerCase().includes(word)) {
-          score++;
-        }
-      }
-
-      if (score > highestScore && score > 0) {
-        highestScore = score;
-        bestMatch = faq.answer;
-      }
-    }
-
-    return bestMatch;
-  };
+  }, [debugInfo]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,24 +126,60 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const question = inputValue.trim();
     setInputValue('');
     setIsLoading(true);
 
-    // Simulate thinking delay
-    setTimeout(() => {
-      const answer = findBestAnswer(userMessage.text);
+    try {
+      // Call RAG-based chatbot API with debug enabled only if user is owner
+      const debugParam = isOwner ? '&debug=true' : '';
+      const response = await fetch(
+        `/api/chatbot?text=${encodeURIComponent(question)}&username=${encodeURIComponent(username)}${debugParam}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      // Store debug information (only if user is owner)
+      if (isOwner && data.debug) {
+        setDebugInfo({
+          vectorizeMatches: data.debug.vectorizeMatches || 0,
+          matchingFaqIds: data.debug.matchingFaqIds || [],
+          faqsRetrieved: data.debug.faqsRetrieved || 0,
+          chatbotOwnerId: data.debug.chatbotOwnerId || '',
+          chatbotOwnerUsername: data.debug.chatbotOwnerUsername,
+          contextUsed: data.contextUsed || false,
+          faqsUsed: data.faqsUsed || 0,
+        });
+      }
       
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: answer || 
+        text: data.answer || 
           "I don't have specific information about that in my knowledge base. Could you try rephrasing your question or ask about something else?",
+        sender: 'bot',
+        timestamp: new Date(),
+        debugInfo: data.debug,
+      };
+
+      setMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      console.error('Error calling chatbot API:', error);
+      
+      const botMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: "Sorry, I'm having trouble processing your question right now. Please try again later.",
         sender: 'bot',
         timestamp: new Date(),
       };
 
       setMessages(prev => [...prev, botMessage]);
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   if (!botOwner) {
@@ -182,6 +229,17 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
                 Your Chatbot
               </div>
             )}
+            {isOwner && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setShowDebug(!showDebug)}
+                className="ml-2"
+                title={showDebug ? 'Hide Debug Panel' : 'Show Debug Panel'}
+              >
+                <Bug className="w-4 h-4" />
+              </Button>
+            )}
           </div>
           {botOwner.bio && (
             <p className="text-sm text-gray-600 mt-2">{botOwner.bio}</p>
@@ -190,8 +248,9 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
       </header>
 
       {/* Chat Area */}
-      <div className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col">
-        <Card className="flex-1 flex flex-col">
+      <div className={`flex-1 w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex gap-4 ${showDebug ? 'max-w-7xl' : 'max-w-4xl'}`}>
+        {/* Main Chat Card */}
+        <Card className={`flex-1 flex flex-col ${showDebug ? 'flex-1' : ''}`}>
           <ScrollArea className="flex-1 p-4" ref={scrollRef}>
             <div className="space-y-4">
               {messages.map((message) => (
@@ -264,6 +323,111 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
             </p>
           </div>
         </Card>
+
+        {/* Debug Panel - Only show if user is the owner */}
+        {isOwner && showDebug && (
+          <Card className="w-96 flex flex-col border-2 border-orange-200">
+            <CardHeader className="pb-3 border-b">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bug className="w-5 h-5 text-orange-600" />
+                  <CardTitle className="text-lg">Debug Panel</CardTitle>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowDebug(false)}
+                  className="h-6 w-6"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <ScrollArea className="flex-1 p-4" ref={debugScrollRef}>
+              <div className="space-y-4">
+                {debugInfo ? (
+                  <>
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-sm text-gray-700">Query Information</h3>
+                      <div className="bg-gray-50 rounded p-2 text-xs space-y-1">
+                        <div><span className="font-medium">Owner ID:</span> {debugInfo.chatbotOwnerId}</div>
+                        {debugInfo.chatbotOwnerUsername && (
+                          <div><span className="font-medium">Username:</span> {debugInfo.chatbotOwnerUsername}</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-sm text-gray-700">Vectorize Results</h3>
+                      <div className="bg-gray-50 rounded p-2 text-xs space-y-1">
+                        <div><span className="font-medium">Matches Found:</span> {debugInfo.vectorizeMatches}</div>
+                        <div><span className="font-medium">After Filtering:</span> {debugInfo.matchingFaqIds.length}</div>
+                        {debugInfo.matchingFaqIds.length > 0 && (
+                          <div className="mt-2">
+                            <span className="font-medium">FAQ IDs:</span>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {debugInfo.matchingFaqIds.map((id) => (
+                                <span key={id} className="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded text-xs">
+                                  {id}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-sm text-gray-700">D1 Database Results</h3>
+                      <div className="bg-gray-50 rounded p-2 text-xs space-y-1">
+                        <div><span className="font-medium">FAQs Retrieved:</span> {debugInfo.faqsRetrieved}</div>
+                        <div>
+                          <span className="font-medium">Context Used:</span>{' '}
+                          <span className={debugInfo.contextUsed ? 'text-green-600' : 'text-red-600'}>
+                            {debugInfo.contextUsed ? 'Yes' : 'No'}
+                          </span>
+                        </div>
+                        <div><span className="font-medium">FAQs Used:</span> {debugInfo.faqsUsed}</div>
+                      </div>
+                    </div>
+
+                    {debugInfo.faqsRetrieved === 0 && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+                        <p className="text-xs text-yellow-800 font-medium">⚠️ No FAQs Retrieved</p>
+                        <p className="text-xs text-yellow-700 mt-1">
+                          This could mean:
+                        </p>
+                        <ul className="text-xs text-yellow-700 mt-1 list-disc list-inside space-y-0.5">
+                          <li>Vectorize returned no matches</li>
+                          <li>All matches were filtered out (userId mismatch)</li>
+                          <li>D1 database has no FAQs for this user</li>
+                        </ul>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center text-gray-500 text-sm py-8">
+                    <Bug className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                    <p>No debug information available yet.</p>
+                    <p className="text-xs mt-1">Send a message to see debug data.</p>
+                  </div>
+                )}
+
+                {/* Latest Message Debug Info */}
+                {messages.length > 0 && messages[messages.length - 1]?.debugInfo && (
+                  <div className="space-y-2 mt-4 pt-4 border-t">
+                    <h3 className="font-semibold text-sm text-gray-700">Latest Response Debug</h3>
+                    <div className="bg-gray-50 rounded p-2 text-xs">
+                      <pre className="whitespace-pre-wrap text-xs overflow-auto max-h-48">
+                        {JSON.stringify(messages[messages.length - 1].debugInfo, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </Card>
+        )}
       </div>
     </div>
   );
