@@ -24,6 +24,7 @@ export function FAQManager({ userId }: FAQManagerProps) {
     isUpdating,
     isDeleting,
     deletingId,
+    workflowStep,
   } = useFAQs(userId);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -32,6 +33,28 @@ export function FAQManager({ userId }: FAQManagerProps) {
   const [answer, setAnswer] = useState('');
 
   const isBusy = isCreating || isUpdating || isDeleting;
+
+  // Get status message based on workflow step
+  const getStatusMessage = (): string => {
+    if (!isCreating || !workflowStep) return 'Add FAQ';
+    
+    switch (workflowStep) {
+      case 'starting':
+        return 'Starting...';
+      case 'creating-db-record':
+        return 'Saving to database...';
+      case 'generating-embedding':
+        return 'Learning...';
+      case 'inserting-vector':
+        return 'Memorizing...';
+      case 'completed':
+        return 'Completed!';
+      case 'failed':
+        return 'Failed';
+      default:
+        return 'Creating...';
+    }
+  };
 
   const handleAddFAQ = (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,7 +200,7 @@ export function FAQManager({ userId }: FAQManagerProps) {
                       {isCreating ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Creating...
+                          {getStatusMessage()}
                         </>
                       ) : (
                         'Add FAQ'
