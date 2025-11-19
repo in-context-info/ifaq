@@ -152,14 +152,14 @@ export function FAQManager({ userId }: FAQManagerProps) {
                   Add FAQ
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-h-[90vh] flex flex-col">
                 <DialogHeader>
                   <DialogTitle>Add New FAQ</DialogTitle>
                   <DialogDescription>
                     Create a question-answer pair to train your chatbot
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleAddFAQ} className="space-y-4">
+                <form onSubmit={handleAddFAQ} className="space-y-4 flex-1 overflow-y-auto pr-2">
                   <div className="space-y-2">
                     <Label htmlFor="question">Question</Label>
                     <Input
@@ -179,11 +179,12 @@ export function FAQManager({ userId }: FAQManagerProps) {
                       value={answer}
                       onChange={(e) => setAnswer(e.target.value)}
                       rows={5}
+                      className="min-h-[120px] max-h-[300px] overflow-y-auto resize-y"
                       required
                       disabled={isCreating}
                     />
                   </div>
-                  <div className="flex gap-2 justify-end">
+                  <div className="flex gap-2 justify-end pt-2">
                     <Button
                       type="button"
                       variant="outline"
@@ -281,14 +282,14 @@ export function FAQManager({ userId }: FAQManagerProps) {
 
       {/* Edit Dialog */}
       <Dialog open={!!editingFAQ} onOpenChange={(open) => !open && !isBusy && closeEditDialog()}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Edit FAQ</DialogTitle>
             <DialogDescription>
               Update the question-answer pair
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleEditFAQ} className="space-y-4">
+          <form onSubmit={handleEditFAQ} className="space-y-4 flex-1 overflow-y-auto pr-2">
             <div className="space-y-2">
               <Label htmlFor="edit-question">Question</Label>
               <Input
@@ -308,11 +309,12 @@ export function FAQManager({ userId }: FAQManagerProps) {
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
                 rows={5}
+                className="min-h-[120px] max-h-[300px] overflow-y-auto resize-y"
                 required
                 disabled={isUpdating}
               />
             </div>
-            <div className="flex gap-2 justify-end">
+            <div className="flex gap-2 justify-end pt-2">
               <Button
                 type="button"
                 variant="outline"
