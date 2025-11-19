@@ -84,7 +84,20 @@ export async function handleChatbotQuery(
 
 		// Step 2: Query Vectorize to find similar FAQs
 		// Query with topK to get candidates, then filter by userId in metadata
-		const vectorQuery = await c.env.VECTOR_INDEX.query(vectors, { topK: 10 });
+		// IMPORTANT: returnMetadata must be true to filter by userId
+		const vectorQuery = await c.env.VECTOR_INDEX.query(vectors, { 
+			topK: 10,
+			returnMetadata: true 
+		});
+
+		console.log('Vectorize query results:', {
+			matchesCount: vectorQuery.matches?.length || 0,
+			matches: vectorQuery.matches?.map(m => ({
+				id: m.id,
+				score: m.score,
+				metadata: m.metadata
+			}))
+		});
 
 		let matchingFaqIds: string[] = [];
 		if (vectorQuery.matches && vectorQuery.matches.length > 0) {
@@ -92,13 +105,20 @@ export async function handleChatbotQuery(
 			matchingFaqIds = vectorQuery.matches
 				.filter((match) => {
 					const metadata = match.metadata as { userId?: string | number } | undefined;
-					return metadata?.userId?.toString() === chatbotOwnerId?.toString();
+					const matchUserId = metadata?.userId?.toString();
+					const ownerId = chatbotOwnerId?.toString();
+					const matches = matchUserId === ownerId;
+					
+					if (!matches) {
+						console.log(`Filtered out FAQ ${match.id}: userId mismatch (${matchUserId} !== ${ownerId})`);
+					}
+					return matches;
 				})
 				.slice(0, 5) // Limit to top 5 after filtering
 				.map((match) => match.id);
 		}
 
-		console.log('Found matching FAQ IDs:', matchingFaqIds);
+		console.log('Found matching FAQ IDs after filtering:', matchingFaqIds);
 
 		// Step 3: Retrieve matching FAQs from D1 (only chatbot owner's FAQs)
 		let faqs: DbFaq[] = [];
@@ -117,6 +137,21 @@ export async function handleChatbotQuery(
 			
 			if (results) {
 				faqs = results;
+			}
+		} else {
+			// Fallback: If Vectorize returns no matches, try to get all FAQs for the user
+			// This handles cases where Vectorize might be empty or the query doesn't match
+			console.log('No Vectorize matches found, falling back to direct D1 query');
+			const fallbackStmt = c.env.DB.prepare(
+				'SELECT faq_id, user_id, question, answer, created_at, modified_at FROM FAQs WHERE user_id = ? ORDER BY created_at DESC LIMIT 5'
+			).bind(chatbotOwnerId);
+			const { results: fallbackResults } = await fallbackStmt.all<DbFaq>();
+			
+			if (fallbackResults && fallbackResults.length > 0) {
+				console.log(`Fallback found ${fallbackResults.length} FAQs from D1`);
+				faqs = fallbackResults;
+			} else {
+				console.log('No FAQs found in D1 for user');
 			}
 		}
 
