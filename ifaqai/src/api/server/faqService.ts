@@ -170,7 +170,7 @@ export async function handleDeleteFAQ(
 
 		// Step 2: Delete from Vectorize first (before D1) to ensure we have the ID
 		try {
-			const vectorDeleteResult = await c.env.VECTOR_INDEX.delete([faqId.toString()]);
+			const vectorDeleteResult = await c.env.VECTOR_INDEX.deleteByIds([faqId.toString()]);
 			console.log(`[DELETE FAQ] Vectorize deletion result:`, vectorDeleteResult);
 		} catch (vectorError) {
 			console.error(`[DELETE FAQ] Error deleting from Vectorize:`, vectorError);

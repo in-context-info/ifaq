@@ -357,6 +357,93 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Clear All Vectorize",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/clear-vectorize",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "clear-vectorize"
+              ]
+            },
+            "description": "Clear all vectors from Vectorize database. This will delete all FAQ embeddings from Vectorize (but not from D1). Useful for starting fresh or fixing sync issues."
+          },
+          "response": []
+        },
+        {
+          "name": "Clear Vectorize for User",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/clear-vectorize/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "clear-vectorize",
+                "{{userId}}"
+              ]
+            },
+            "description": "Clear all vectors from Vectorize for a specific user. This will delete all FAQ embeddings for that user from Vectorize (but not from D1)."
+          },
+          "response": []
+        },
+        {
+          "name": "Retrain All Embeddings",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/retrain-embeddings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "retrain-embeddings"
+              ]
+            },
+            "description": "Regenerate embeddings for all FAQs from all users. This will regenerate embeddings using the current model and update Vectorize. Useful when the embedding model changes or to fix sync issues."
+          },
+          "response": []
+        },
+        {
+          "name": "Retrain Embeddings for User",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/retrain-embeddings/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "retrain-embeddings",
+                "{{userId}}"
+              ]
+            },
+            "description": "Regenerate embeddings for all FAQs for a specific user. This will regenerate embeddings using the current model and update Vectorize."
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "event": [],
