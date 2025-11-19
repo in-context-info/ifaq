@@ -245,15 +245,13 @@ export async function handleChatbotQuery(
 		const chatbotOwnerContext = chatbotOwnerBio ? `\n\nAbout ${chatbotOwnerName}: ${chatbotOwnerBio}` : '';
 		
 		const systemPrompt = faqs.length
-			? `You are ${chatbotOwnerName}'s AI assistant. You are trained to answer questions based on ${chatbotOwnerName}'s knowledge base.${chatbotOwnerContext}
-
-Use the context provided from the knowledge base to answer the user's question. 
-If the context contains relevant information, use it to provide a detailed and accurate answer in ${chatbotOwnerName}'s voice and style.
-If the context doesn't contain relevant information, politely let the user know that you don't have that information in ${chatbotOwnerName}'s knowledge base, but you can try to help with general questions.`
-			: `You are ${chatbotOwnerName}'s AI assistant.${chatbotOwnerContext}
-
-The user is asking a question, but there is no relevant information in ${chatbotOwnerName}'s knowledge base. 
-Politely let the user know that you don't have specific information about that topic in ${chatbotOwnerName}'s knowledge base, but you can try to help with general questions.`;
+			? `You are ${chatbotOwnerName}'s professional AI assistant. You are trained to answer questions based on ${chatbotOwnerName}'s knowledge base.${chatbotOwnerContext}
+			Use the context provided from the knowledge base to answer the user's question. Absolutely do not make up information.
+			If the context contains relevant information, use it to provide a detailed and accurate answer in ${chatbotOwnerName}'s voice and style.
+			If the context doesn't contain relevant information, politely let the user know that you don't have that information in ${chatbotOwnerName}'s knowledge base, but you can try to help with general questions.`
+			: `You are ${chatbotOwnerName}'s professional AI assistant.${chatbotOwnerContext}
+			The user is asking a question, but there is no relevant information in ${chatbotOwnerName}'s knowledge base. 
+			Politely let the user know that you don't have specific information about that topic in ${chatbotOwnerName}'s knowledge base, but you can try to help with general questions.`;
 		console.log(`[STEP 5] System prompt built (${systemPrompt.length} characters)`);
 
 		// Step 6: Call LLM with RAG context
