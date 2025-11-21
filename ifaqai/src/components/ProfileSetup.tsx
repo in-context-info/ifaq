@@ -162,9 +162,19 @@ export function ProfileSetup({ onComplete, initialEmail }: ProfileSetupProps) {
                 onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                 required
               />
-              <p className="text-sm text-gray-600">
-                Your chatbot will be accessible at /{username}
-              </p>
+              <div className="space-y-1">
+                <p className="text-sm text-gray-600">
+                  Your chatbot will be accessible at /{username || 'username'}
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-800">
+                  <p className="font-medium mb-1">Username Requirements:</p>
+                  <ul className="list-disc list-inside space-y-0.5 text-blue-700">
+                    <li>At least 3 characters long</li>
+                    <li>Only lowercase letters, numbers, and underscores</li>
+                    <li>Must be unique (not already taken)</li>
+                  </ul>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">
