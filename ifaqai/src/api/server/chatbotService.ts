@@ -40,10 +40,12 @@ export async function handleChatbotQuery(
 		// The chatbot owner is the user whose chatbot is being accessed via /<username> URL
 		let chatbotOwnerId: string | number | null = chatbotOwnerUserId || null;
 		let chatbotOwnerProfile: { name?: string; username?: string; bio?: string } | null = null;
-		
+
 		if (!chatbotOwnerId && chatbotOwnerUsername) {
 			// Fetch full chatbot owner profile to get name, bio, etc. for personalization
-			const chatbotOwner = await getUserByUsername(c.env.DB, chatbotOwnerUsername, { includeFaqs: false });
+			const chatbotOwner = await getUserByUsername(c.env.DB, chatbotOwnerUsername, {
+				includeFaqs: false,
+			});
 			if (!chatbotOwner) {
 				return c.json({ error: 'Chatbot owner not found' }, 404);
 			}
@@ -55,11 +57,21 @@ export async function handleChatbotQuery(
 			};
 		} else if (chatbotOwnerId && !chatbotOwnerUsername) {
 			// If userId is provided but no username, fetch chatbot owner profile for personalization
-			const userStmt = c.env.DB.prepare('SELECT user_name, first_name, last_name, user_bio FROM Users WHERE user_id = ?').bind(chatbotOwnerId);
-			const chatbotOwner = await userStmt.first<{ user_name: string; first_name: string | null; last_name: string | null; user_bio: string | null }>();
+			const userStmt = c.env.DB.prepare(
+				'SELECT user_name, first_name, last_name, user_bio FROM Users WHERE user_id = ?'
+			).bind(chatbotOwnerId);
+			const chatbotOwner = await userStmt.first<{
+				user_name: string;
+				first_name: string | null;
+				last_name: string | null;
+				user_bio: string | null;
+			}>();
 			if (chatbotOwner) {
 				chatbotOwnerProfile = {
-					name: [chatbotOwner.first_name, chatbotOwner.last_name].filter(Boolean).join(' ') || chatbotOwner.user_name,
+					name:
+						[chatbotOwner.first_name, chatbotOwner.last_name]
+							.filter(Boolean)
+							.join(' ') || chatbotOwner.user_name,
 					username: chatbotOwner.user_name,
 					bio: chatbotOwner.user_bio || undefined,
 				};
@@ -70,10 +82,10 @@ export async function handleChatbotQuery(
 			return c.json({ error: 'userId or username is required' }, 400);
 		}
 
-		console.log('[STEP 0] Chatbot query initiated:', { 
-			question, 
-			chatbotOwnerId, 
-			chatbotOwnerUsername: chatbotOwnerProfile?.username 
+		console.log('[STEP 0] Chatbot query initiated:', {
+			question,
+			chatbotOwnerId,
+			chatbotOwnerUsername: chatbotOwnerProfile?.username,
 		});
 
 		// Step 1: Convert query to embedding
@@ -83,40 +95,51 @@ export async function handleChatbotQuery(
 			const embeddings = await c.env.AI.run('@cf/baai/bge-base-en-v1.5', {
 				text: question,
 			});
-			
+
 			// Check if it's an async response
 			if ('request_id' in embeddings) {
-				console.error('[STEP 1] FAILED: Embedding generation returned async response (not supported)');
-				return c.json({ 
-					error: 'Failed to generate embedding',
-					step: 'embedding_generation',
-					details: 'Async embedding not supported'
-				}, 500);
+				console.error(
+					'[STEP 1] FAILED: Embedding generation returned async response (not supported)'
+				);
+				return c.json(
+					{
+						error: 'Failed to generate embedding',
+						step: 'embedding_generation',
+						details: 'Async embedding not supported',
+					},
+					500
+				);
 			}
-			
+
 			// Type guard: check if it has data property (not AsyncResponse)
 			if ('data' in embeddings && embeddings.data) {
 				vectors = embeddings.data[0] || null;
 			} else {
 				vectors = null;
 			}
-			
+
 			if (!vectors) {
 				console.error('[STEP 1] FAILED: Embedding generation returned no data');
-				return c.json({ 
-					error: 'Failed to generate embedding',
-					step: 'embedding_generation',
-					details: 'Embedding API returned empty data'
-				}, 500);
+				return c.json(
+					{
+						error: 'Failed to generate embedding',
+						step: 'embedding_generation',
+						details: 'Embedding API returned empty data',
+					},
+					500
+				);
 			}
 			console.log('[STEP 1] SUCCESS: Embedding generated, vector length:', vectors.length);
 		} catch (error) {
 			console.error('[STEP 1] FAILED: Error generating embedding:', error);
-			return c.json({ 
-				error: 'Failed to generate embedding',
-				step: 'embedding_generation',
-				details: error instanceof Error ? error.message : 'Unknown error'
-			}, 500);
+			return c.json(
+				{
+					error: 'Failed to generate embedding',
+					step: 'embedding_generation',
+					details: error instanceof Error ? error.message : 'Unknown error',
+				},
+				500
+			);
 		}
 
 		// Step 2: Query Vectorize to find similar FAQs
@@ -125,9 +148,9 @@ export async function handleChatbotQuery(
 		console.log('[STEP 2] Querying Vectorize index...');
 		let vectorQuery: any = null;
 		try {
-			vectorQuery = await c.env.VECTOR_INDEX.query(vectors, { 
+			vectorQuery = await c.env.VECTOR_INDEX.query(vectors, {
 				topK: 10,
-				returnMetadata: true 
+				returnMetadata: true,
 			});
 
 			console.log('[STEP 2] Vectorize query results:', {
@@ -135,14 +158,16 @@ export async function handleChatbotQuery(
 				matches: vectorQuery.matches?.map((m: any) => ({
 					id: m.id,
 					score: m.score,
-					metadata: m.metadata
-				}))
+					metadata: m.metadata,
+				})),
 			});
-			
+
 			if (!vectorQuery.matches || vectorQuery.matches.length === 0) {
 				console.log('[STEP 2] WARNING: Vectorize returned no matches');
 			} else {
-				console.log(`[STEP 2] SUCCESS: Vectorize returned ${vectorQuery.matches.length} matches`);
+				console.log(
+					`[STEP 2] SUCCESS: Vectorize returned ${vectorQuery.matches.length} matches`
+				);
 			}
 		} catch (error) {
 			console.error('[STEP 2] FAILED: Error querying Vectorize:', error);
@@ -162,16 +187,20 @@ export async function handleChatbotQuery(
 					const matchUserId = metadata?.userId?.toString();
 					const ownerId = chatbotOwnerId?.toString();
 					const matches = matchUserId === ownerId;
-					
+
 					if (!matches) {
-						console.log(`[STEP 2.5] Filtered out FAQ ${match.id}: userId mismatch (${matchUserId} !== ${ownerId})`);
+						console.log(
+							`[STEP 2.5] Filtered out FAQ ${match.id}: userId mismatch (${matchUserId} !== ${ownerId})`
+						);
 					}
 					return matches;
 				})
 				.slice(0, 5) // Limit to top 5 after filtering
 				.map((match: any) => match.id);
-			
-			console.log(`[STEP 2.5] Filtered ${beforeFilterCount} matches to ${matchingFaqIds.length} matching FAQs`);
+
+			console.log(
+				`[STEP 2.5] Filtered ${beforeFilterCount} matches to ${matchingFaqIds.length} matching FAQs`
+			);
 		} else {
 			console.log('[STEP 2.5] No matches to filter');
 		}
@@ -183,18 +212,23 @@ export async function handleChatbotQuery(
 			try {
 				// Build query with IN clause for multiple IDs
 				const placeholders = matchingFaqIds.map(() => '?').join(',');
-				const query = `SELECT faq_id, user_id, question, answer, created_at, modified_at 
-					FROM FAQs 
-					WHERE faq_id IN (${placeholders}) AND user_id = ? 
+				const query = `SELECT faq_id, user_id, question, answer, created_at, modified_at
+					FROM FAQs
+					WHERE faq_id IN (${placeholders}) AND user_id = ?
 					ORDER BY faq_id`;
-				
+
 				// Convert FAQ IDs to numbers for the query
-				const faqIdNumbers = matchingFaqIds.map(id => parseInt(id, 10));
-				console.log(`[STEP 3] Querying D1 with FAQ IDs:`, faqIdNumbers, `for userId:`, chatbotOwnerId);
-				
+				const faqIdNumbers = matchingFaqIds.map((id) => parseInt(id, 10));
+				console.log(
+					`[STEP 3] Querying D1 with FAQ IDs:`,
+					faqIdNumbers,
+					`for userId:`,
+					chatbotOwnerId
+				);
+
 				const stmt = c.env.DB.prepare(query).bind(...faqIdNumbers, chatbotOwnerId);
 				const { results } = await stmt.all<DbFaq>();
-				
+
 				if (results) {
 					faqs = results;
 					console.log(`[STEP 3] SUCCESS: Retrieved ${faqs.length} FAQs from D1`);
@@ -208,15 +242,19 @@ export async function handleChatbotQuery(
 		} else {
 			// Fallback: If Vectorize returns no matches, try to get all FAQs for the user
 			// This handles cases where Vectorize might be empty or the query doesn't match
-			console.log('[STEP 3] FALLBACK: No Vectorize matches found, querying all FAQs for user from D1...');
+			console.log(
+				'[STEP 3] FALLBACK: No Vectorize matches found, querying all FAQs for user from D1...'
+			);
 			try {
 				const fallbackStmt = c.env.DB.prepare(
 					'SELECT faq_id, user_id, question, answer, created_at, modified_at FROM FAQs WHERE user_id = ? ORDER BY created_at DESC LIMIT 5'
 				).bind(chatbotOwnerId);
 				const { results: fallbackResults } = await fallbackStmt.all<DbFaq>();
-				
+
 				if (fallbackResults && fallbackResults.length > 0) {
-					console.log(`[STEP 3] FALLBACK SUCCESS: Found ${fallbackResults.length} FAQs from D1`);
+					console.log(
+						`[STEP 3] FALLBACK SUCCESS: Found ${fallbackResults.length} FAQs from D1`
+					);
 					faqs = fallbackResults;
 				} else {
 					console.log('[STEP 3] FALLBACK: No FAQs found in D1 for user');
@@ -242,16 +280,19 @@ export async function handleChatbotQuery(
 		// chatbotOwnerProfile is the user whose chatbot is being accessed (from URL /<username>)
 		const chatbotOwnerName = chatbotOwnerProfile?.name || 'the owner';
 		const chatbotOwnerBio = chatbotOwnerProfile?.bio;
-		const chatbotOwnerContext = chatbotOwnerBio ? `\n\nAbout ${chatbotOwnerName}: ${chatbotOwnerBio}` : '';
-		
+		const chatbotOwnerContext = chatbotOwnerBio
+			? `\n\nAbout ${chatbotOwnerName}: ${chatbotOwnerBio}`
+			: '';
+
 		const systemPrompt = faqs.length
-			? `You are ${chatbotOwnerName}'s professional AI assistant. You are trained to answer questions based on ${chatbotOwnerName}'s knowledge base.${chatbotOwnerContext}
-			Use the context provided from the knowledge base to answer the user's question. Absolutely do not make up information.
-			If the context contains relevant information, use it to provide a detailed and accurate answer in ${chatbotOwnerName}'s voice and style.
-			If the context doesn't contain relevant information, politely let the user know that you don't have that information in ${chatbotOwnerName}'s knowledge base, but you can try to help with general questions.`
-			: `You are ${chatbotOwnerName}'s professional AI assistant.${chatbotOwnerContext}
-			The user is asking a question, but there is no relevant information in ${chatbotOwnerName}'s knowledge base. 
-			Politely let the user know that you don't have specific information about that topic in ${chatbotOwnerName}'s knowledge base, but you can try to help with general questions.`;
+			? `You are ${chatbotOwnerName}'s expert personal assistant. You are trained to answer questions based on sample FAQ questions and answers pair.${chatbotOwnerContext}
+			Be concise, summarize and give the answer less than 200 words.
+			Don't make up information. Use the context provided from the knowledge base to answer the user's question. Absolutely do not make up information.
+			If the question is not relevant to the context of ${chatbotOwnerName}'s profile, acknowledge that this is not relevant to ${chatbotOwnerName}'s profile and just tell a joke.`
+			: `You are ${chatbotOwnerName}'s expert personal assistant.${chatbotOwnerContext}	
+			Be concise, summarize and give the answer less than 200 words. Absolutely do not make up information.
+			The context provided is empty, so acknowledge you don't know and just tell a joke.
+			If the question is not relevant to the context of ${chatbotOwnerName}'s profile, acknowledge that this is not relevant to ${chatbotOwnerName}'s profile and just tell a joke.`;
 		console.log(`[STEP 5] System prompt built (${systemPrompt.length} characters)`);
 
 		// Step 6: Call LLM with RAG context
@@ -278,7 +319,8 @@ export async function handleChatbotQuery(
 			console.log('[STEP 6] SUCCESS: LLM response generated');
 		} catch (error) {
 			console.error('[STEP 6] FAILED: Error calling LLM:', error);
-			answer = "I'm sorry, I encountered an error while processing your question. Please try again later.";
+			answer =
+				"I'm sorry, I encountered an error while processing your question. Please try again later.";
 		}
 
 		// Check if debug mode is enabled
@@ -301,13 +343,13 @@ export async function handleChatbotQuery(
 					step3: 'D1 retrieval',
 					step4: 'Context building',
 					step5: 'Prompt building',
-					step6: 'LLM generation'
+					step6: 'LLM generation',
 				},
 				vectorizeMatches: vectorQuery?.matches?.length || 0,
 				matchingFaqIds: matchingFaqIds,
 				faqsRetrieved: faqs.length,
 				chatbotOwnerId: chatbotOwnerId?.toString(),
-				chatbotOwnerUsername: chatbotOwnerProfile?.username
+				chatbotOwnerUsername: chatbotOwnerProfile?.username,
 			};
 		}
 
@@ -326,4 +368,3 @@ export async function handleChatbotQuery(
 		);
 	}
 }
-
