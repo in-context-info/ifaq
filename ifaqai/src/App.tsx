@@ -3,6 +3,8 @@ import { ProfileSetup } from './components/ProfileSetup';
 import { Dashboard } from './components/Dashboard';
 import { ChatbotInterface } from './components/ChatbotInterface';
 import { LogoutPage } from './components/LogoutPage';
+import { WelcomePage } from './components/WelcomePage';
+import { Logo } from './components/Logo';
 import { fetchAuthFromServer, setLoggedInUser, getAuthPayload, logout as logoutUser } from './api/client';
 import { getCurrentUser, getUserByUsername, getUserByEmail, fetchUserFromDatabase, createUserInDatabase } from './api/client';
 import type { User } from './api/types';
@@ -15,10 +17,13 @@ function App() {
   const [currentView, setCurrentView] = useState<'home' | 'chatbot'>('home');
   const [activeChatbotUsername, setActiveChatbotUsername] = useState<string>('');
   const [isLoggedOut, setIsLoggedOut] = useState(false);
+  const [showWelcomePage, setShowWelcomePage] = useState(false);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   useEffect(() => {
     // Fetch ZeroTrust authentication on mount
     const initializeAuth = async () => {
+      setIsAuthChecking(true);
       // First, try to get auth from server (ZeroTrust)
       const authPayload = await fetchAuthFromServer();
       
@@ -109,6 +114,7 @@ function App() {
             }, 100);
           }
         }
+        setIsAuthChecking(false);
       } else {
         // Fallback: check localStorage for existing session
         const storedPayload = getAuthPayload();
@@ -148,6 +154,11 @@ function App() {
             const needsSetup = !localUser.username || localUser.username.startsWith('user_');
             setNeedsProfileSetup(needsSetup);
           }
+          setIsAuthChecking(false);
+        } else {
+          // No stored payload - show welcome page
+          setIsAuthChecking(false);
+          setShowWelcomePage(true);
         }
       }
     };
@@ -284,9 +295,69 @@ function App() {
     window.history.pushState({}, '', '/');
   };
 
+  const handleGetStarted = async () => {
+    // Trigger auth check when user clicks "Get Started"
+    setShowWelcomePage(false);
+    setIsAuthChecking(true);
+    
+    try {
+      const authPayload = await fetchAuthFromServer();
+      if (authPayload) {
+        // Re-run the auth initialization logic
+        setLoggedInUser(authPayload);
+        // Try to fetch user from database
+        try {
+          let user = await fetchUserFromDatabase(authPayload.email);
+          if (user) {
+            setCurrentUser(user);
+            const needsSetup = !user.username || user.username.startsWith('user_');
+            setNeedsProfileSetup(needsSetup);
+          } else {
+            // Create new user
+            const nameParts = authPayload.name ? authPayload.name.trim().split(/\s+/) : ['', ''];
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+            
+            const newUser: User = {
+              email: authPayload.email,
+              name: authPayload.name || '',
+              firstName,
+              lastName,
+              username: `user_${Date.now()}`,
+              bio: '',
+              faqs: [],
+            };
+            
+            const createdUser = await createUserInDatabase(newUser);
+            setCurrentUser(createdUser);
+            setNeedsProfileSetup(true);
+          }
+        } catch (error) {
+          console.error('Error in handleGetStarted:', error);
+          toast.error('Failed to authenticate. Please try again.');
+          setShowWelcomePage(true);
+        }
+      } else {
+        toast.error('Authentication required. Please ensure you are logged in via Cloudflare ZeroTrust.');
+        setShowWelcomePage(true);
+      }
+    } catch (error) {
+      console.error('Error in handleGetStarted:', error);
+      toast.error('Failed to authenticate. Please try again.');
+      setShowWelcomePage(true);
+    } finally {
+      setIsAuthChecking(false);
+    }
+  };
+
   // Show logout page if user has logged out
   if (isLoggedOut) {
     return <LogoutPage />;
+  }
+
+  // Show welcome page if not authenticated and not checking auth
+  if (showWelcomePage && !isAuthChecking) {
+    return <WelcomePage onGetStarted={handleGetStarted} />;
   }
 
   // Show chatbot view if accessing /<username>
@@ -300,14 +371,13 @@ function App() {
     );
   }
 
-  // Show loading/auth message if not authenticated
-  // With ZeroTrust, users should be automatically authenticated
-  if (!currentUser) {
+  // Show loading/auth message if checking auth or not authenticated
+  if (isAuthChecking || !currentUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center space-y-4">
-          <div className="flex justify-center">
-            <img src="/assets/logo.png" alt="Company Logo" className="h-16 w-auto mb-4" />
+          <div className="flex justify-center mb-4">
+            <Logo size="xl" />
           </div>
           <div className="flex justify-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>

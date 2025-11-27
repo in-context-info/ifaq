@@ -1,5 +1,6 @@
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Logo } from './Logo';
 import { LogOut, ExternalLink } from 'lucide-react';
 
 export function LogoutPage() {
@@ -12,7 +13,7 @@ export function LogoutPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <div className="flex justify-center mb-4">
-            <img src="/assets/logo.png" alt="Company Logo" className="h-16 w-auto" />
+            <Logo size="xl" />
           </div>
           <CardTitle className="text-center">You are logged out</CardTitle>
           <CardDescription className="text-center">

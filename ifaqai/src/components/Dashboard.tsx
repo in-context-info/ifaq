@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Badge } from './ui/badge';
 import { FAQManager } from './FAQManager';
+import { Logo } from './Logo';
 import { Bot, LogOut, ExternalLink, User as UserIcon } from 'lucide-react';
 import { useFAQs } from '../hooks/useFAQs';
 import type { User } from '../api/types';
@@ -32,7 +33,7 @@ export function Dashboard({ user, onLogout, onNavigateToChatbot, onUpdateUser }:
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img src="/assets/logo.png" alt="Company Logo" className="h-10 w-auto" />
+              <Logo size="md" />
               <div>
                 <h1 className="text-gray-900">AI Chatbot Trainer</h1>
                 <p className="text-sm text-gray-600">Manage your chatbot</p>

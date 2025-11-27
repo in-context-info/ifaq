@@ -4,6 +4,7 @@ import { Input } from './ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { ScrollArea } from './ui/scroll-area';
+import { Logo } from './Logo';
 import { Bot, Send, ArrowLeft, User as UserIcon, Bug, X } from 'lucide-react';
 // Removed localStorage import - now using API
 
@@ -215,7 +216,7 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
                 <ArrowLeft className="w-5 h-5" />
               </Button>
             )}
-            <img src="/assets/logo.png" alt="Company Logo" className="h-8 w-auto" />
+            <Logo size="sm" />
             <Avatar className="w-10 h-10">
               <AvatarFallback className="bg-indigo-600 text-white">
                 {botOwner.name.charAt(0).toUpperCase()}

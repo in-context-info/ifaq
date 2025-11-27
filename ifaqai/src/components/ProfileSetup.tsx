@@ -5,6 +5,7 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
+import { Logo } from './Logo';
 import { User, Bug, X } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -132,7 +133,7 @@ export function ProfileSetup({ onComplete, initialEmail }: ProfileSetupProps) {
         <CardHeader>
           <div className="flex items-center justify-between mb-4">
             <div className="flex justify-center flex-1">
-              <img src="/assets/logo.png" alt="Company Logo" className="h-12 w-auto" />
+              <Logo size="lg" />
             </div>
             <Button
               variant="outline"
