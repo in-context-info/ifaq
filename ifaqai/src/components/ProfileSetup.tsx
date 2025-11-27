@@ -132,9 +132,7 @@ export function ProfileSetup({ onComplete, initialEmail }: ProfileSetupProps) {
         <CardHeader>
           <div className="flex items-center justify-between mb-4">
             <div className="flex justify-center flex-1">
-              <div className="bg-indigo-600 p-3 rounded-full">
-                <User className="w-8 h-8 text-white" />
-              </div>
+              <img src="/assets/logo.png" alt="Company Logo" className="h-12 w-auto" />
             </div>
             <Button
               variant="outline"

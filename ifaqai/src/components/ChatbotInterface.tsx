@@ -215,6 +215,7 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
                 <ArrowLeft className="w-5 h-5" />
               </Button>
             )}
+            <img src="/assets/logo.png" alt="Company Logo" className="h-8 w-auto" />
             <Avatar className="w-10 h-10">
               <AvatarFallback className="bg-indigo-600 text-white">
                 {botOwner.name.charAt(0).toUpperCase()}

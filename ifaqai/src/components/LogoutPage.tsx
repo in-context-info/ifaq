@@ -12,9 +12,7 @@ export function LogoutPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <div className="flex justify-center mb-4">
-            <div className="bg-indigo-600 p-3 rounded-full">
-              <LogOut className="w-8 h-8 text-white" />
-            </div>
+            <img src="/assets/logo.png" alt="Company Logo" className="h-16 w-auto" />
           </div>
           <CardTitle className="text-center">You are logged out</CardTitle>
           <CardDescription className="text-center">

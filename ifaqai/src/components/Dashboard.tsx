@@ -32,9 +32,7 @@ export function Dashboard({ user, onLogout, onNavigateToChatbot, onUpdateUser }:
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="bg-indigo-600 p-2 rounded-lg">
-                <Bot className="w-6 h-6 text-white" />
-              </div>
+              <img src="/assets/logo.png" alt="Company Logo" className="h-10 w-auto" />
               <div>
                 <h1 className="text-gray-900">AI Chatbot Trainer</h1>
                 <p className="text-sm text-gray-600">Manage your chatbot</p>
