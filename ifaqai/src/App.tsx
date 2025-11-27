@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ProfileSetup } from './components/ProfileSetup';
 import { Dashboard } from './components/Dashboard';
 import { ChatbotInterface } from './components/ChatbotInterface';
@@ -19,6 +19,7 @@ function App() {
   const [isLoggedOut, setIsLoggedOut] = useState(false);
   const [showWelcomePage, setShowWelcomePage] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const routeCheckRef = useRef(false);
 
   useEffect(() => {
     // Fetch ZeroTrust authentication on mount
@@ -178,29 +179,42 @@ function App() {
     };
 
     initializeAuth();
+  }, []);
+
+  // Separate effect for route checking - only runs on mount and when currentUser changes
+  useEffect(() => {
+    // Prevent infinite loops by checking if we're already processing
+    if (routeCheckRef.current) {
+      return;
+    }
 
     // Function to check and handle route-based navigation
     const checkRoute = () => {
+      if (routeCheckRef.current) return;
+      routeCheckRef.current = true;
+
       const path = window.location.pathname;
       
       // "/home" path - show welcome page
       if (path === '/home') {
         setShowWelcomePage(true);
-        setCurrentView('welcome');
+        setCurrentView((prev) => prev !== 'welcome' ? 'welcome' : prev);
+        routeCheckRef.current = false;
         return;
       }
       
       // Root path "/" - show dashboard/home for authenticated users
       if (path === '/') {
         if (currentUser) {
-          setCurrentView('home');
+          setCurrentView((prev) => prev !== 'home' ? 'home' : prev);
           setShowWelcomePage(false);
         } else {
           // Not authenticated, redirect to welcome page
           window.history.pushState({}, '', '/home');
           setShowWelcomePage(true);
-          setCurrentView('welcome');
+          setCurrentView((prev) => prev !== 'welcome' ? 'welcome' : prev);
         }
+        routeCheckRef.current = false;
         return;
       }
       
@@ -211,42 +225,42 @@ function App() {
         // Exclude "home" as it's reserved for welcome page
         if (username !== 'home' && /^[a-zA-Z0-9_]+$/.test(username)) {
           setActiveChatbotUsername(username);
-          setCurrentView('chatbot');
+          setCurrentView((prev) => prev !== 'chatbot' ? 'chatbot' : prev);
+          routeCheckRef.current = false;
           return;
         }
       }
       
-      // Default: if on chatbot view but invalid route, go to home
-      if (currentView === 'chatbot') {
-        setActiveChatbotUsername('');
-        if (currentUser) {
-          window.history.pushState({}, '', '/');
-          setCurrentView('home');
-        } else {
-          window.history.pushState({}, '', '/home');
-          setCurrentView('welcome');
-        }
-      }
-      
-      // If path doesn't match any route and user is authenticated, go to root
+      // Default: if path doesn't match any route and user is authenticated, go to root
       if (currentUser && path !== '/' && path !== '/home' && !/^\/[a-zA-Z0-9_]+$/.test(path)) {
         window.history.pushState({}, '', '/');
-        setCurrentView('home');
+        setCurrentView((prev) => prev !== 'home' ? 'home' : prev);
+      } else if (!currentUser && path !== '/home' && path !== '/') {
+        // If not authenticated and not on /home or /, redirect to /home
+        window.history.pushState({}, '', '/home');
+        setCurrentView((prev) => prev !== 'welcome' ? 'welcome' : prev);
       }
+      
+      routeCheckRef.current = false;
     };
 
-    // Check route on mount and when currentUser changes
-    checkRoute();
+    // Small delay to prevent race conditions
+    const timeoutId = setTimeout(() => {
+      checkRoute();
+    }, 0);
 
     // Listen for route changes (browser back/forward)
     const handlePopState = () => {
+      routeCheckRef.current = false;
       checkRoute();
     };
     window.addEventListener('popstate', handlePopState);
 
     // Cleanup
     return () => {
+      clearTimeout(timeoutId);
       window.removeEventListener('popstate', handlePopState);
+      routeCheckRef.current = false;
     };
   }, [currentUser]);
 
