@@ -24,28 +24,40 @@ app.get('*', async (c) => {
 		return c.notFound();
 	}
 
-	// If it's a static file (has extension), try to serve it
-	if (pathname.includes('.')) {
+	// Check for common static file extensions
+	const staticFileExtensions = ['.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.eot', '.json', '.map'];
+	const hasStaticExtension = staticFileExtensions.some(ext => pathname.toLowerCase().endsWith(ext));
+	
+	// If it's a static file, try to serve it directly from ASSETS
+	if (hasStaticExtension) {
 		try {
 			const assetResponse = await c.env.ASSETS.fetch(c.req.raw);
-			if (assetResponse.status !== 404) {
+			if (assetResponse && assetResponse.status !== 404) {
 				return assetResponse;
 			}
 		} catch (error) {
-			console.error('Error fetching asset:', error);
+			console.error('Error fetching static asset:', error);
 		}
 	}
 
-	// For all other routes, serve index.html for client-side routing
-	// This handles React client-side routing like /username
+	// For all client-side routes (including /{username} like /anh, /home, /, etc.), serve index.html
+	// This allows React to handle the routing on the client side
+	// Routes like /anh will be handled by React's client-side routing in App.tsx
+	const indexUrl = new URL('/index.html', c.req.url);
+	const indexRequest = new Request(indexUrl.toString(), c.req.raw);
+	
 	try {
-		const indexRequest = new Request(new URL('/index.html', c.req.url));
 		const indexResponse = await c.env.ASSETS.fetch(indexRequest);
-		return indexResponse;
+		if (indexResponse && indexResponse.status === 200) {
+			return indexResponse;
+		}
 	} catch (error) {
-		console.error('Error fetching index.html:', error);
-		return c.text('Not Found', 404);
+		console.error('Error fetching index.html for route:', pathname, error);
+		return c.text('Not Found - Unable to serve index.html', 404);
 	}
+
+	// If index.html fetch failed, return 404
+	return c.text('Not Found', 404);
 });
 
 export default app;
