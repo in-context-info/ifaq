@@ -43,21 +43,49 @@ app.get('*', async (c) => {
 	// For all client-side routes (including /{username} like /anh, /home, /, etc.), serve index.html
 	// This allows React to handle the routing on the client side
 	// Routes like /anh will be handled by React's client-side routing in App.tsx
+	
+	// Check if ASSETS binding is available
+	if (!c.env.ASSETS || !c.env.ASSETS.fetch) {
+		console.error('ASSETS binding is not available');
+		return c.text('Server configuration error - ASSETS binding not available', 500);
+	}
+	
+	// First, try to let ASSETS handle the original request
+	// In some configurations, ASSETS might automatically serve index.html for non-existent routes
+	try {
+		const originalResponse = await c.env.ASSETS.fetch(c.req.raw);
+		if (originalResponse && originalResponse.status !== 404) {
+			return originalResponse;
+		}
+	} catch (error) {
+		console.error('Error fetching original request from ASSETS:', error);
+	}
+	
+	// If that didn't work, explicitly fetch index.html
 	const indexUrl = new URL('/index.html', c.req.url);
-	const indexRequest = new Request(indexUrl.toString(), c.req.raw);
 	
 	try {
+		// Try with a simple request
+		const indexRequest = new Request(indexUrl.toString());
 		const indexResponse = await c.env.ASSETS.fetch(indexRequest);
+		
 		if (indexResponse && indexResponse.status === 200) {
 			return indexResponse;
 		}
+		
+		// Log what we got
+		if (indexResponse) {
+			console.error(`index.html fetch returned status ${indexResponse.status} for route: ${pathname}`);
+		}
 	} catch (error) {
-		console.error('Error fetching index.html for route:', pathname, error);
-		return c.text('Not Found - Unable to serve index.html', 404);
+		console.error('Error fetching index.html:', error);
+		if (error instanceof Error) {
+			console.error('Error details:', error.name, error.message);
+		}
 	}
 
-	// If index.html fetch failed, return 404
-	return c.text('Not Found', 404);
+	// If all else fails, return 404
+	return c.text(`Not Found - Route: ${pathname}`, 404);
 });
 
 export default app;
