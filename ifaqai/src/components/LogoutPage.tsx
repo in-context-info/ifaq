@@ -6,13 +6,13 @@ import { ArrowRight } from 'lucide-react';
 
 export function LogoutPage() {
   const handleGoToHome = () => {
-    window.location.href = '/';
+    window.location.href = '/home';
   };
 
   // Auto-redirect to homepage after a short delay
   useEffect(() => {
     const timer = setTimeout(() => {
-      window.location.href = '/';
+      window.location.href = '/home';
     }, 3000); // 3 second delay
 
     return () => clearTimeout(timer);

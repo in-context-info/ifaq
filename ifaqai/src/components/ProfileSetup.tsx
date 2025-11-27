@@ -163,7 +163,7 @@ export function ProfileSetup({ onComplete, initialEmail }: ProfileSetupProps) {
               />
               <div className="space-y-1">
                 <p className="text-sm text-gray-600">
-                  Your chatbot will be accessible at /bot/{username || 'username'}
+                  Your chatbot will be accessible at /{username || 'username'}
                 </p>
                 <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-800">
                   <p className="font-medium mb-1">Username Requirements:</p>

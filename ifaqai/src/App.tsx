@@ -41,10 +41,7 @@ function App() {
             // Check if user needs profile setup (no username set or temporary username)
             const needsSetup = !user.username || user.username.startsWith('user_');
             setNeedsProfileSetup(needsSetup);
-            // Navigate to /bot if at root
-            if (window.location.pathname === '/') {
-              window.history.pushState({}, '', '/bot');
-            }
+            // Already at root, no need to navigate
           } else {
             // User doesn't exist in database - create new user record
             // First, get or create user in localStorage (setLoggedInUser does this)
@@ -57,19 +54,13 @@ function App() {
                 setCurrentUser(newUser);
                 // New users always need profile setup
                 setNeedsProfileSetup(true);
-                // Navigate to /bot if at root
-                if (window.location.pathname === '/') {
-                  window.history.pushState({}, '', '/bot');
-                }
+                // Already at root, no need to navigate
               } catch (error) {
                 console.error('Error creating user in database, using localStorage user:', error);
                 setCurrentUser(localUser);
                 // New users always need profile setup
                 setNeedsProfileSetup(true);
-                // Navigate to /bot if at root
-                if (window.location.pathname === '/') {
-                  window.history.pushState({}, '', '/bot');
-                }
+                // Already at root, no need to navigate
               }
             } else {
               // Create a new user from auth payload
@@ -93,10 +84,7 @@ function App() {
                 setCurrentUser(createdUser);
                 // New users always need profile setup
                 setNeedsProfileSetup(true);
-                // Navigate to /bot if at root
-                if (window.location.pathname === '/') {
-                  window.history.pushState({}, '', '/bot');
-                }
+                // Already at root, no need to navigate
               } catch (error) {
                 console.error('Error creating user in database, falling back to localStorage:', error);
                 // Fallback: create in localStorage via setLoggedInUser
@@ -119,10 +107,7 @@ function App() {
             setCurrentUser(localUser);
             const needsSetup = !localUser.username || localUser.username.startsWith('user_');
             setNeedsProfileSetup(needsSetup);
-            // Navigate to /bot if at root
-            if (window.location.pathname === '/') {
-              window.history.pushState({}, '', '/bot');
-            }
+            // Already at root, no need to navigate
           } else {
             // Create new user in localStorage and set needs setup
             setTimeout(() => {
@@ -130,10 +115,7 @@ function App() {
               if (newUser) {
                 setCurrentUser(newUser);
                 setNeedsProfileSetup(true);
-                // Navigate to /bot if at root
-                if (window.location.pathname === '/') {
-                  window.history.pushState({}, '', '/bot');
-                }
+                // Already at root, no need to navigate
               }
             }, 100);
           }
@@ -150,10 +132,7 @@ function App() {
               setCurrentUser(user);
               const needsSetup = !user.username || user.username.startsWith('user_');
               setNeedsProfileSetup(needsSetup);
-              // Navigate to /bot if at root
-              if (window.location.pathname === '/') {
-                window.history.pushState({}, '', '/bot');
-              }
+              // Already at root, no need to navigate
               return;
             } else {
               // User doesn't exist in database - create new user record
@@ -164,10 +143,7 @@ function App() {
                   const newUser = await createUserInDatabase(localUser);
                   setCurrentUser(newUser);
                   setNeedsProfileSetup(true);
-                  // Navigate to /bot if at root
-                  if (window.location.pathname === '/') {
-                    window.history.pushState({}, '', '/bot');
-                  }
+                  // Already at root, no need to navigate
                   return;
                 } catch (error) {
                   console.error('Error creating user in database:', error);
@@ -185,10 +161,7 @@ function App() {
             setCurrentUser(localUser);
             const needsSetup = !localUser.username || localUser.username.startsWith('user_');
             setNeedsProfileSetup(needsSetup);
-            // Navigate to /bot if at root
-            if (window.location.pathname === '/') {
-              window.history.pushState({}, '', '/bot');
-            }
+            // Already at root, no need to navigate
           }
           setIsAuthChecking(false);
         } else {
@@ -196,9 +169,9 @@ function App() {
           setIsAuthChecking(false);
           setShowWelcomePage(true);
           setCurrentView('welcome');
-          // Ensure we're at root path
-          if (window.location.pathname !== '/') {
-            window.history.pushState({}, '', '/');
+          // Ensure we're at /home path
+          if (window.location.pathname !== '/home') {
+            window.history.pushState({}, '', '/home');
           }
         }
       }
@@ -210,38 +183,33 @@ function App() {
     const checkRoute = () => {
       const path = window.location.pathname;
       
-      // Root path "/" - show welcome page
-      if (path === '/') {
-        if (!currentUser) {
-          setShowWelcomePage(true);
-          setCurrentView('welcome');
-        } else {
-          // If user is authenticated, redirect to /bot
-          window.history.pushState({}, '', '/bot');
-          setCurrentView('home');
-        }
+      // "/home" path - show welcome page
+      if (path === '/home') {
+        setShowWelcomePage(true);
+        setCurrentView('welcome');
         return;
       }
       
-      // "/bot" path - show dashboard/home for authenticated users
-      if (path === '/bot') {
+      // Root path "/" - show dashboard/home for authenticated users
+      if (path === '/') {
         if (currentUser) {
           setCurrentView('home');
           setShowWelcomePage(false);
         } else {
           // Not authenticated, redirect to welcome page
-          window.history.pushState({}, '', '/');
+          window.history.pushState({}, '', '/home');
           setShowWelcomePage(true);
           setCurrentView('welcome');
         }
         return;
       }
       
-      // Chatbot route (/bot/{username}) - check if it's a valid username
-      if (path.startsWith('/bot/') && path.length > 5) {
-        const username = path.substring(5).split('/')[0]; // Get segment after "/bot/"
+      // Chatbot route (/{username}) - check if it's a valid username
+      if (path.length > 1 && !path.includes('.')) {
+        const username = path.substring(1).split('/')[0]; // Get first segment
         // Only valid usernames (alphanumeric and underscore, case-insensitive)
-        if (/^[a-zA-Z0-9_]+$/.test(username)) {
+        // Exclude "home" as it's reserved for welcome page
+        if (username !== 'home' && /^[a-zA-Z0-9_]+$/.test(username)) {
           setActiveChatbotUsername(username);
           setCurrentView('chatbot');
           return;
@@ -252,17 +220,17 @@ function App() {
       if (currentView === 'chatbot') {
         setActiveChatbotUsername('');
         if (currentUser) {
-          window.history.pushState({}, '', '/bot');
+          window.history.pushState({}, '', '/');
           setCurrentView('home');
         } else {
-          window.history.pushState({}, '', '/');
+          window.history.pushState({}, '', '/home');
           setCurrentView('welcome');
         }
       }
       
-      // If path doesn't match any route and user is authenticated, go to /bot
-      if (currentUser && path !== '/bot' && !path.startsWith('/bot/')) {
-        window.history.pushState({}, '', '/bot');
+      // If path doesn't match any route and user is authenticated, go to root
+      if (currentUser && path !== '/' && path !== '/home' && !/^\/[a-zA-Z0-9_]+$/.test(path)) {
+        window.history.pushState({}, '', '/');
         setCurrentView('home');
       }
     };
@@ -359,20 +327,20 @@ function App() {
   const handleLogout = () => {
     logoutUser();
     setCurrentUser(null);
-    setCurrentView('home');
-    window.history.pushState({}, '', '/');
+    setCurrentView('welcome');
+    window.history.pushState({}, '', '/home');
     setIsLoggedOut(true);
   };
 
   const handleNavigateToChatbot = (username: string) => {
     setActiveChatbotUsername(username);
     setCurrentView('chatbot');
-    window.history.pushState({}, '', `/bot/${username}`);
+    window.history.pushState({}, '', `/${username}`);
   };
 
   const handleBackToDashboard = () => {
     setCurrentView('home');
-    window.history.pushState({}, '', '/bot');
+    window.history.pushState({}, '', '/');
   };
 
   const handleGetStarted = async () => {
@@ -412,18 +380,20 @@ function App() {
             setCurrentUser(createdUser);
             setNeedsProfileSetup(true);
           }
-          // Navigate to /bot after successful authentication
-          window.history.pushState({}, '', '/bot');
+          // Navigate to root after successful authentication
+          window.history.pushState({}, '', '/');
         } catch (error) {
           console.error('Error in handleGetStarted:', error);
           toast.error('Failed to authenticate. Please try again.');
           setShowWelcomePage(true);
           setCurrentView('welcome');
+          window.history.pushState({}, '', '/home');
         }
       } else {
         toast.error('Authentication required. Please ensure you are logged in via Cloudflare ZeroTrust.');
         setShowWelcomePage(true);
         setCurrentView('welcome');
+        window.history.pushState({}, '', '/home');
       }
     } catch (error) {
       console.error('Error in handleGetStarted:', error);
@@ -440,9 +410,9 @@ function App() {
     return <LogoutPage />;
   }
 
-  // Show welcome page at root path "/" or when explicitly set
+  // Show welcome page at "/home" path or when explicitly set
   const currentPath = window.location.pathname;
-  if (currentPath === '/' || (showWelcomePage && !isAuthChecking && currentView === 'welcome')) {
+  if (currentPath === '/home' || (showWelcomePage && !isAuthChecking && currentView === 'welcome')) {
     return <WelcomePage onGetStarted={handleGetStarted} />;
   }
 
@@ -479,9 +449,9 @@ function App() {
     );
   }
 
-  // If at /bot but not authenticated, redirect to welcome page
-  if (currentPath === '/bot' && !currentUser) {
-    window.history.pushState({}, '', '/');
+  // If at root but not authenticated, redirect to welcome page
+  if (currentPath === '/' && !currentUser) {
+    window.history.pushState({}, '', '/home');
     return <WelcomePage onGetStarted={handleGetStarted} />;
   }
 

@@ -143,7 +143,7 @@ export function WelcomePage({ onGetStarted }: WelcomePageProps) {
               <ul className="space-y-2 text-gray-700">
                 <li className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-indigo-600"></div>
-                  Unique /bot/{'{username}'} URL
+                  Unique /{'{username}'} URL
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-indigo-600"></div>
