@@ -24,7 +24,7 @@ export function Dashboard({ user, onLogout, onNavigateToChatbot, onUpdateUser }:
   // Update user object with current FAQs count for display
   const faqCount = faqs.length;
 
-  const chatbotUrl = `${window.location.origin}/${user.username}`;
+  const chatbotUrl = `${window.location.origin}/bot/${user.username}`;
 
   return (
     <div className="min-h-screen bg-gray-50">
