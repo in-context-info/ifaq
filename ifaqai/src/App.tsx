@@ -195,6 +195,22 @@ function App() {
 
       const path = window.location.pathname;
       
+      // Chatbot route (/{username}) - check if it's a valid username
+      // This should be PUBLIC and accessible without authentication
+      // Check this FIRST to ensure chatbot routes work even when not authenticated
+      if (path.length > 1 && !path.includes('.')) {
+        const username = path.substring(1).split('/')[0]; // Get first segment
+        // Only valid usernames (alphanumeric and underscore, case-insensitive)
+        // Exclude "home" as it's reserved for welcome page
+        if (username !== 'home' && /^[a-zA-Z0-9_]+$/.test(username)) {
+          setActiveChatbotUsername(username);
+          setCurrentView((prev) => prev !== 'chatbot' ? 'chatbot' : prev);
+          setShowWelcomePage(false);
+          routeCheckRef.current = false;
+          return;
+        }
+      }
+      
       // "/home" path - show welcome page
       if (path === '/home') {
         setShowWelcomePage(true);
@@ -218,25 +234,14 @@ function App() {
         return;
       }
       
-      // Chatbot route (/{username}) - check if it's a valid username
-      if (path.length > 1 && !path.includes('.')) {
-        const username = path.substring(1).split('/')[0]; // Get first segment
-        // Only valid usernames (alphanumeric and underscore, case-insensitive)
-        // Exclude "home" as it's reserved for welcome page
-        if (username !== 'home' && /^[a-zA-Z0-9_]+$/.test(username)) {
-          setActiveChatbotUsername(username);
-          setCurrentView((prev) => prev !== 'chatbot' ? 'chatbot' : prev);
-          routeCheckRef.current = false;
-          return;
-        }
-      }
-      
-      // Default: if path doesn't match any route and user is authenticated, go to root
+      // Default: if path doesn't match any route
       if (currentUser && path !== '/' && path !== '/home' && !/^\/[a-zA-Z0-9_]+$/.test(path)) {
+        // Authenticated user on invalid route - go to root
         window.history.pushState({}, '', '/');
         setCurrentView((prev) => prev !== 'home' ? 'home' : prev);
-      } else if (!currentUser && path !== '/home' && path !== '/') {
-        // If not authenticated and not on /home or /, redirect to /home
+      } else if (!currentUser && path !== '/home' && path !== '/' && !/^\/[a-zA-Z0-9_]+$/.test(path)) {
+        // Not authenticated and not on /home, /, or a valid username route - redirect to /home
+        // Note: Valid username routes (/{username}) are allowed without auth
         window.history.pushState({}, '', '/home');
         setCurrentView((prev) => prev !== 'welcome' ? 'welcome' : prev);
       }
@@ -430,7 +435,8 @@ function App() {
     return <WelcomePage onGetStarted={handleGetStarted} />;
   }
 
-  // Show chatbot view if accessing /<username>
+  // Show chatbot view if accessing /<username> - this should work even during auth check
+  // Chatbot routes are public and don't require authentication
   if (currentView === 'chatbot') {
     return (
       <ChatbotInterface
@@ -441,7 +447,7 @@ function App() {
     );
   }
 
-  // Show loading/auth message if checking auth
+  // Show loading/auth message if checking auth (but not for chatbot routes)
   if (isAuthChecking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
