@@ -6,7 +6,7 @@ import { LogoutPage } from './components/LogoutPage';
 import { WelcomePage } from './components/WelcomePage';
 import { Logo } from './components/Logo';
 import { fetchAuthFromServer, setLoggedInUser, getAuthPayload, logout as logoutUser } from './api/client';
-import { getCurrentUser, getUserByUsername, getUserByEmail, fetchUserFromDatabase, createUserInDatabase } from './api/client';
+import { getCurrentUser, getUserByUsername, getUserByEmail, fetchUserFromDatabase, createUserInDatabase, getAllUsers, saveUsers } from './api/client';
 import type { User } from './api/types';
 import { toast } from 'sonner';
 
@@ -30,41 +30,59 @@ function App() {
       
       if (authPayload) {
         // User is authenticated via ZeroTrust
-        setLoggedInUser(authPayload);
+        // Store auth payload but DON'T create localStorage user yet
+        // We'll check the database first to get the real username
+        localStorage.setItem('authPayload', JSON.stringify(authPayload));
         
-        // Try to fetch user from D1 database first
+        // Try to fetch user from D1 database first (BEFORE creating localStorage user)
         try {
           let user = await fetchUserFromDatabase(authPayload.email);
           
           if (user) {
-            // User exists in database
+            // User exists in database - use the real username from database
             setCurrentUser(user);
+            // Update localStorage with the real username (not temporary)
+            // Sync localStorage user with database user to ensure consistency
+            const users = getAllUsers();
+            const userIndex = users.findIndex((u: User) => u.email === user.email);
+            if (userIndex !== -1) {
+              users[userIndex] = user; // Update with database user (has real username)
+              saveUsers(users);
+            } else {
+              // User not in localStorage, add it
+              users.push(user);
+              saveUsers(users);
+            }
+            // Update logged in user key
+            localStorage.setItem('loggedInUser', user.username);
             // Check if user needs profile setup (no username set or temporary username)
             const needsSetup = !user.username || user.username.startsWith('user_');
             setNeedsProfileSetup(needsSetup);
             // Already at root, no need to navigate
           } else {
             // User doesn't exist in database - create new user record
-            // First, get or create user in localStorage (setLoggedInUser does this)
+            // Check localStorage first (might have existing user from previous session)
             const localUser = getUserByEmail(authPayload.email);
             
-            if (localUser) {
-              // Create new user in database using localStorage user data
+            if (localUser && !localUser.username.startsWith('user_')) {
+              // localStorage has a user with a real username - use it to create in database
               try {
                 const newUser = await createUserInDatabase(localUser);
                 setCurrentUser(newUser);
+                setLoggedInUser(authPayload); // Update localStorage
                 // New users always need profile setup
                 setNeedsProfileSetup(true);
                 // Already at root, no need to navigate
               } catch (error) {
                 console.error('Error creating user in database, using localStorage user:', error);
                 setCurrentUser(localUser);
+                setLoggedInUser(authPayload); // Update localStorage
                 // New users always need profile setup
                 setNeedsProfileSetup(true);
                 // Already at root, no need to navigate
               }
             } else {
-              // Create a new user from auth payload
+              // No existing user - create a new user with temporary username
               const nameParts = authPayload.name ? authPayload.name.trim().split(/\s+/) : ['', ''];
               const firstName = nameParts[0] || '';
               const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
@@ -83,13 +101,14 @@ function App() {
                 // Create in database
                 const createdUser = await createUserInDatabase(newUser);
                 setCurrentUser(createdUser);
+                setLoggedInUser(authPayload); // Update localStorage with database user
                 // New users always need profile setup
                 setNeedsProfileSetup(true);
                 // Already at root, no need to navigate
               } catch (error) {
                 console.error('Error creating user in database, falling back to localStorage:', error);
                 // Fallback: create in localStorage via setLoggedInUser
-                // Wait a moment for setLoggedInUser to complete
+                setLoggedInUser(authPayload);
                 setTimeout(() => {
                   const localUser = getUserByEmail(authPayload.email);
                   if (localUser) {
@@ -370,13 +389,25 @@ function App() {
     try {
       const authPayload = await fetchAuthFromServer();
       if (authPayload) {
-        // Re-run the auth initialization logic
-        setLoggedInUser(authPayload);
-        // Try to fetch user from database
+        // Store auth payload but check database first
+        localStorage.setItem('authPayload', JSON.stringify(authPayload));
+        // Try to fetch user from database FIRST (before creating localStorage user)
         try {
           let user = await fetchUserFromDatabase(authPayload.email);
           if (user) {
+            // User exists in database - use the real username
             setCurrentUser(user);
+            // Sync localStorage with database user
+            const users = getAllUsers();
+            const userIndex = users.findIndex((u: User) => u.email === user.email);
+            if (userIndex !== -1) {
+              users[userIndex] = user;
+              saveUsers(users);
+            } else {
+              users.push(user);
+              saveUsers(users);
+            }
+            localStorage.setItem('loggedInUser', user.username);
             const needsSetup = !user.username || user.username.startsWith('user_');
             setNeedsProfileSetup(needsSetup);
           } else {
