@@ -133,12 +133,17 @@ export async function getUserByUsername(
   options?: { includeFaqs?: boolean }
 ): Promise<User | null> {
   try {
-    const stmt = db.prepare('SELECT * FROM Users WHERE user_name = ?').bind(username);
+    // Use LOWER() to make the query case-insensitive
+    // This ensures "anh", "Anh", "ANH" all match
+    const stmt = db.prepare('SELECT * FROM Users WHERE LOWER(user_name) = LOWER(?)').bind(username);
     const result = await stmt.first<DbUser>();
     
     if (!result) {
+      console.log(`[getUserByUsername] User not found for username: "${username}"`);
       return null;
     }
+
+    console.log(`[getUserByUsername] Found user: ${result.user_name} (queried: ${username})`);
 
     // Convert database user to application user
     const user = dbUserToUser(result);
@@ -313,12 +318,19 @@ export async function handleGetUserByUsername(
   }
 
   try {
+    // Decode username in case it's URL-encoded
+    const decodedUsername = decodeURIComponent(username);
+    console.log(`[handleGetUserByUsername] Looking up username: "${decodedUsername}"`);
+    
     // Query Users table filtering by username (user_name column)
-    const user = await getUserByUsername(c.env.DB, username, { includeFaqs: true });
+    const user = await getUserByUsername(c.env.DB, decodedUsername, { includeFaqs: true });
     
     if (!user) {
+      console.log(`[handleGetUserByUsername] User not found: "${decodedUsername}"`);
       return c.json({ error: 'User not found' }, 404);
     }
+    
+    console.log(`[handleGetUserByUsername] Found user: ${user.username} (email: ${user.email})`);
 
     // Remove password from response if it exists
     const { password, ...userWithoutPassword } = user;

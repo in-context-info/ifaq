@@ -54,10 +54,17 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
     // Load bot owner info from D1 database
     const loadBotOwner = async () => {
       try {
-        const response = await fetch(`/api/users/${encodeURIComponent(username)}`);
+        console.log(`[ChatbotInterface] Loading bot owner for username: "${username}"`);
+        const encodedUsername = encodeURIComponent(username);
+        const url = `/api/users/${encodedUsername}`;
+        console.log(`[ChatbotInterface] Fetching from: ${url}`);
+        
+        const response = await fetch(url);
         
         if (!response.ok) {
           if (response.status === 404) {
+            const errorData = await response.json().catch(() => ({}));
+            console.error(`[ChatbotInterface] User not found: "${username}"`, errorData);
             setMessages([
               {
                 id: '1',
@@ -68,10 +75,13 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
             ]);
             return;
           }
+          const errorText = await response.text();
+          console.error(`[ChatbotInterface] API error (${response.status}):`, errorText);
           throw new Error(`Failed to fetch user: ${response.statusText}`);
         }
         
         const owner = await response.json();
+        console.log(`[ChatbotInterface] Loaded bot owner:`, { username: owner.username, email: owner.email, name: owner.name });
         setBotOwner(owner);
         setBotName(`${owner.name}'s Bot`);
         
@@ -85,7 +95,7 @@ export function ChatbotInterface({ username, onBack, isOwner }: ChatbotInterface
           },
         ]);
       } catch (error) {
-        console.error('Error loading bot owner:', error);
+        console.error('[ChatbotInterface] Error loading bot owner:', error);
         setMessages([
           {
             id: '1',
