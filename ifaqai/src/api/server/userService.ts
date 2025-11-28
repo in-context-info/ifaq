@@ -297,7 +297,20 @@ export async function handleGetCurrentUser(
 
 /**
  * Handle GET /api/users/:username endpoint
- * Returns user by username (for public chatbot access)
+ * 
+ * PUBLIC ENDPOINT - No authentication required
+ * 
+ * Returns user by username for public chatbot access.
+ * This endpoint allows visitors (non-owners) to access chatbot owner information
+ * including name, bio, and FAQs to support the chatbot experience.
+ * 
+ * Returns:
+ * - User profile (name, username, bio)
+ * - User FAQs (for chatbot knowledge base)
+ * - Public user information
+ * 
+ * Note: Email is included for identification but should be used responsibly.
+ * Password is never returned.
  */
 export async function handleGetUserByUsername(
   c: Context<{ Bindings: Env }>
@@ -320,9 +333,10 @@ export async function handleGetUserByUsername(
   try {
     // Decode username in case it's URL-encoded
     const decodedUsername = decodeURIComponent(username);
-    console.log(`[handleGetUserByUsername] Looking up username: "${decodedUsername}"`);
+    console.log(`[handleGetUserByUsername] Public access - Looking up username: "${decodedUsername}"`);
     
     // Query Users table filtering by username (user_name column)
+    // includeFaqs: true ensures FAQs are included for chatbot knowledge base
     const user = await getUserByUsername(c.env.DB, decodedUsername, { includeFaqs: true });
     
     if (!user) {
@@ -330,9 +344,10 @@ export async function handleGetUserByUsername(
       return c.json({ error: 'User not found' }, 404);
     }
     
-    console.log(`[handleGetUserByUsername] Found user: ${user.username} (email: ${user.email})`);
+    console.log(`[handleGetUserByUsername] Public access granted - Found user: ${user.username} (name: ${user.name}, FAQs: ${user.faqs?.length || 0})`);
 
-    // Remove password from response if it exists
+    // Remove password from response if it exists (security)
+    // All other user information (name, bio, FAQs, email) is returned for public chatbot access
     const { password, ...userWithoutPassword } = user;
     
     return c.json(userWithoutPassword);
